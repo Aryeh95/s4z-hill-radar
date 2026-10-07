@@ -233,6 +233,119 @@ html:not(.settings-page) body {
     font-size: 0.75em;
 }
 
+.upcoming .row,
+.route-list .row {
+    cursor: pointer;
+}
+
+.upcoming .row:hover,
+.route-list .row:hover {
+    outline: 1px solid var(--hr-fg-dim);
+}
+
+.preview-close,
+.route-list-close {
+    cursor: pointer;
+    padding: 0 0.3em;
+    font-weight: 700;
+}
+
+.preview-close[hidden] {
+    display: none;
+}
+
+.climb.previewing .climb-header {
+    font-style: italic;
+}
+
+.route-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 0.15em;
+    font-size: 0.9em;
+}
+
+.route-list[hidden] {
+    display: none;
+}
+
+.route-list-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+    padding: 0.2em 0.5em;
+    background-color: var(--hr-bg);
+    border-radius: 0.3em;
+    font-weight: 600;
+}
+
+.route-list-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.route-list .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1em;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.route-list .row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    white-space: nowrap;
+    background-color: var(--hr-bg);
+    border-radius: 0.3em;
+    padding: 0.15em 0.5em;
+}
+
+.route-list .row.passed {
+    opacity: 0.5;
+}
+
+.route-list .row.current {
+    outline: 1px solid var(--hr-fg);
+}
+
+.route-list .swatch {
+    width: 0.8em;
+    height: 0.8em;
+    border-radius: 0.2em;
+    flex: none;
+}
+
+.route-list .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.route-list .cat-badge {
+    font-size: 0.75em;
+}
+
+.debug {
+    font-size: 0.7em;
+    opacity: 0.85;
+    margin-top: 0.2em;
+    padding: 0.1em 0.4em;
+    background-color: var(--hr-bg);
+    border-radius: 0.3em;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.debug[hidden] {
+    display: none;
+}
+
 /* Settings page */
 .settings-page form label key {
     display: inline-block;

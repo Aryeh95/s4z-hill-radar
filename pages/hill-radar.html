@@ -26,6 +26,7 @@
                 <div class="title">Hill Radar</div>
                 <div class="filler"></div>
                 <div class="buttons">
+                    <div class="button" id="route-climbs-button" title="Route climbs: list every climb on the route and preview it"><ms>list</ms></div>
                     <a class="button open-settings" href="hill-radar-settings.html?width=560&height=760&child-window"
                        title="Open settings window" target="hill-radar-settings"><ms>settings</ms></a>
                     <div title="Minimize" class="button minimize electron-only"><ms>minimize</ms></div>
@@ -39,6 +40,7 @@
                     <span class="cat-badge" hidden></span>
                     <span class="climb-name"></span>
                     <span class="climb-meta"></span>
+                    <span class="preview-close" title="Back to live" hidden>✕</span>
                 </div>
                 <div class="stats">
                     <div class="stat" data-stat="0"><div class="label"></div><div class="value"><span class="num"></span><span class="unit"></span></div></div>
@@ -48,8 +50,16 @@
                 </div>
                 <div class="profile"><svg></svg></div>
             </div>
+            <div class="route-list" hidden>
+                <div class="route-list-header">
+                    <span class="route-list-title"></span>
+                    <span class="route-list-close" title="Close">✕</span>
+                </div>
+                <div class="rows"></div>
+            </div>
             <div class="idle"></div>
             <div class="upcoming"></div>
+            <div class="debug" hidden></div>
         </div>
     </body>
 </html>

@@ -8,6 +8,7 @@ A [Sauce for Zwift](https://www.sauce.llc/products/sauce4zwift/) mod that finds 
 - Current grade and the average grade of what is left
 - Before a climb: distance to the start, length, ascent and average grade
 - A list of the next climbs on the route
+- A **Route climbs** list (title bar button) of every climb on the route; click any climb there or in the upcoming list to preview it
 
 ## Climb detection
 
@@ -45,6 +46,7 @@ When the route has an official Zwift climb segment (a KOM), that climb uses the 
 - Gradient coloring: Smooth (high resolution, colored point by point) or Sections
 - Gradient color opacity, section length, grade labels, dim the completed part
 - Font scaling, theme override, solid background, data background opacity
+- Show position info: shows where Hill Radar thinks you are and the data it used (handy when reporting a problem)
 
 The window can be resized; everything scales with it.
 

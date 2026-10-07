@@ -25,6 +25,7 @@ common.settingsStore.setDefault({
     solidBackground: false,
     backgroundColor: '#00ff00',
     dataTransparency: 0.7,
+    showDebug: false,
 });
 
 const settings = () => common.settingsStore.get();
@@ -34,6 +35,8 @@ let profile;        // buildProfile() result for the course
 let climbs = [];
 let lastState;
 let building;
+let showList = false;       // route climbs list open
+let previewIndex = null;    // climb being previewed (index into climbs)
 
 
 function isImperial() {
@@ -205,6 +208,7 @@ async function buildCourse(state, key) {
 }
 
 let lastPosition = null;  // {pos, time}
+let positionSource = null;
 
 // Rider's distance along a route section, like Sauce does it, or undefined.
 function sectionDistance(section, state) {
@@ -231,6 +235,7 @@ function routePosition(state) {
     if (state.routeDistance != null && state.routeEnd != null &&
         (!state.routeId || state.routeId === course.routeId)) {
         // The lap finish line is fixed, so use the distance left in the lap.
+        positionSource = 'sauce';
         return lap.offset + lap.distance - (state.routeEnd - state.routeDistance);
     }
     // 2. Estimate from the game's lap progress (0-1)
@@ -240,7 +245,8 @@ function routePosition(state) {
             state.progress * lap.distance :
             lap.lapStart + state.progress * course.lapLength;
     }
-    // 3. Find the rider's road section on the route (may match more than once)
+    // 3. Find the rider's road section on the route. The same road can be used more
+    //    than once (e.g. the lead-in often runs on the road the lap finishes on).
     const candidates = [];
     for (const section of course.sections) {
         if (section.leadin && lapIdx > 0) {
@@ -248,17 +254,36 @@ function routePosition(state) {
         }
         const d = sectionDistance(section, state);
         if (d != null && Number.isFinite(d)) {
-            candidates.push((section.leadin ? 0 : lap.lapStart) + section.blockOffsetDistance + d);
+            candidates.push({
+                pos: (section.leadin ? 0 : lap.lapStart) + section.blockOffsetDistance + d,
+                leadin: section.leadin,
+            });
         }
     }
     if (candidates.length) {
-        const recent = lastPosition && Date.now() - lastPosition.time < 30000 ? lastPosition.pos : null;
-        const ref = recent ?? estimate;
-        if (ref == null) {
-            return candidates[0];
+        positionSource = `road match (${candidates.length})`;
+        // Pick the match nearest to: where the rider just was, else (first lap) the
+        // distance ridden, else the lap progress estimate.
+        let ref = lastPosition && Date.now() - lastPosition.time < 30000 ? lastPosition.pos : null;
+        if (ref == null && lapIdx === 0) {
+            if (Number.isFinite(state.eventDistance) && state.eventDistance >= 0 && state.eventDistance < 500000) {
+                ref = state.eventDistance;
+            } else {
+                const leadin = candidates.find(x => x.leadin);
+                if (leadin) {
+                    return leadin.pos;
+                }
+            }
         }
-        return candidates.reduce((a, b) => Math.abs(b - ref) < Math.abs(a - ref) ? b : a);
+        if (ref == null) {
+            ref = estimate;
+        }
+        if (ref == null) {
+            return candidates[0].pos;
+        }
+        return candidates.reduce((a, b) => Math.abs(b.pos - ref) < Math.abs(a.pos - ref) ? b : a).pos;
     }
+    positionSource = estimate != null ? 'lap progress' : 'unknown';
     return estimate ?? null;
 }
 
@@ -307,6 +332,16 @@ function nameClimbs() {
                 bestOverlap = overlap;
             }
         }
+        if (!best) {
+            // Climb inside a longer named KOM that isn't a climb by itself (e.g. Titans Grove KOM)
+            for (const s of course.segments) {
+                const overlap = Math.min(c.end, s.end) - Math.max(c.start, s.start);
+                if (overlap >= c.length * 0.8 && overlap > bestOverlap && !/lap|loop|sprint/i.test(s.name)) {
+                    best = s;
+                    bestOverlap = overlap;
+                }
+            }
+        }
         c.name = best ? best.name : null;
         if (!c.name && course.mode === 'route') {
             c.name = fallbackClimbName(course.name, c, course.laps);
@@ -320,6 +355,7 @@ function detect() {
         climbs = [];
         return;
     }
+    previewIndex = null;
     profile = buildProfile(course.distances, course.elevations);
     climbs = detectClimbs(profile, {
         minScore: DETECTION_SCORES[settings().detection] || DETECTION_SCORES.small,
@@ -364,8 +400,23 @@ function setStat(i, label, f) {
     el.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
 }
 
+// Climbs in the same lap as `c` (whole course when there are no laps).
+function climbsInLap(c) {
+    if (!course || !course.laps || course.laps.length < 2) {
+        return climbs;
+    }
+    const lap = lapOf(c.start);
+    return climbs.filter(x => lapOf(x.start) === lap);
+}
+
+// [number, count] of a climb within its lap
+function climbNumber(c) {
+    const list = climbsInLap(c);
+    return [list.indexOf(c) + 1, list.length];
+}
+
 function climbTitle(c) {
-    return c.name || `Climb ${c.index + 1}`;
+    return c.name || `Climb ${climbNumber(c)[0]}`;
 }
 
 function setBadge(el, c) {
@@ -500,9 +551,101 @@ function renderUpcoming(list, positionUnknown) {
             `${toText(formatDistance(c.length, imperial))} · ${toText(formatGrade(c.avgGrade))} · ` +
             `${toText(formatElevation(c.ascent, imperial))}`;
         row.append(swatch, name, badge, info);
+        row.addEventListener('click', () => preview(c.index));
         return row;
     });
     el.replaceChildren(...rows);
+}
+
+function preview(index) {
+    previewIndex = index;
+    showList = false;
+    render();
+}
+
+function lapOf(distance) {
+    if (!course || !course.laps) {
+        return 0;
+    }
+    let lap = 0;
+    for (const [i, x] of course.laps.entries()) {
+        if (distance >= x.offset) {
+            lap = i;
+        }
+    }
+    return lap;
+}
+
+// Climbs to list for the route: for free rides the route is planned a few laps
+// ahead, so list one lap's worth; events list everything.
+function routeListClimbs() {
+    if (course && course.mode === 'route' && course.key.startsWith('route:') && course.laps.length > 1) {
+        return climbs.filter(c => c.start < course.laps[0].distance);
+    }
+    return climbs;
+}
+
+function renderRouteList(pos, positionUnknown) {
+    const el = document.querySelector('.route-list');
+    const imperial = isImperial();
+    const s = settings();
+    const list = routeListClimbs();
+    const multiLap = course && course.key.startsWith('event:') && course.laps.length > 1;
+    el.querySelector('.route-list-title').textContent =
+        `${course?.name || 'Road ahead'} · ${list.length} climb${list.length === 1 ? '' : 's'}`;
+    const rows = list.map(c => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        if (!positionUnknown && pos != null) {
+            if (c.end < pos) {
+                row.classList.add('passed');
+            } else if (c.start <= pos) {
+                row.classList.add('current');
+            }
+        }
+        const swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = gradeColor(c.avgGrade, s.colorScheme, 1);
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = climbTitle(c) + (multiLap ? ` (lap ${lapOf(c.start) + 1})` : '');
+        const badge = document.createElement('span');
+        setBadge(badge, c);
+        const info = document.createElement('span');
+        info.textContent = `at ${toText(formatDistance(c.start, imperial))} · ` +
+            `${toText(formatDistance(c.length, imperial))} · ${toText(formatGrade(c.avgGrade))} · ` +
+            `${toText(formatElevation(c.ascent, imperial))}`;
+        row.append(swatch, name, badge, info);
+        row.addEventListener('click', () => preview(c.index));
+        return row;
+    });
+    if (!rows.length) {
+        const empty = document.createElement('div');
+        empty.className = 'idle';
+        empty.textContent = course ? 'No climbs on this route' : 'No route selected';
+        rows.push(empty);
+    }
+    el.querySelector('.rows').replaceChildren(...rows);
+}
+
+function renderDebug(state, pos, positionUnknown) {
+    const el = document.querySelector('.debug');
+    el.hidden = !settings().showDebug;
+    if (el.hidden) {
+        return;
+    }
+    const v = x => x == null ? '-' : (typeof x === 'number' ? Math.round(x * 1000) / 1000 : x);
+    const st = state || {};
+    el.textContent = [
+        `pos ${positionUnknown ? 'unknown' : v(pos)} (${positionSource || '-'})`,
+        `course ${course ? course.key : '-'}`,
+        `routeId ${v(st.routeId)}`,
+        `routeDistance ${v(st.routeDistance)} / routeEnd ${v(st.routeEnd)}`,
+        `laps ${v(st.laps)}`,
+        `progress ${v(st.progress)}`,
+        `eventDistance ${v(st.eventDistance)}`,
+        `road ${v(st.roadId)}${st.reverse ? ' rev' : ''} @ ${v(st.roadTime)}`,
+    ].join(' · ');
 }
 
 function render() {
@@ -548,14 +691,39 @@ function render() {
             }
         }
     }
+    renderDebug(state, pos, positionUnknown);
+    const listEl = content.querySelector('.route-list');
+    listEl.hidden = !showList;
+    if (showList) {
+        climbEl.hidden = true;
+        idleEl.textContent = '';
+        content.classList.remove('hide-idle');
+        renderUpcoming([], positionUnknown);
+        renderRouteList(pos, positionUnknown);
+        return;
+    }
+    const liveClimb = climb;
+    let previewing = false;
+    if (previewIndex != null && climbs[previewIndex]) {
+        climb = climbs[previewIndex];
+        previewing = true;
+        const known = pos != null && !positionUnknown;
+        if (known && pos >= climb.start && pos <= climb.end) {
+            progress = riderProgress(profile, climb, pos);
+        } else {
+            progress = {state: 'approaching', toStart: known && pos < climb.start ? climb.start - pos : null};
+        }
+    }
     climbEl.hidden = !climb;
+    climbEl.classList.toggle('previewing', previewing);
+    climbEl.querySelector('.preview-close').hidden = !previewing;
     idleEl.textContent = climb ? '' : message;
     content.classList.toggle('hide-idle', !climb && !!s.hideWhenIdle);
     // Later climbs
     const upcoming = [];
     const count = Number(s.upcomingCount) || 0;
     if (pos != null && count > 0) {
-        const after = climb ? climbs.filter(x => x.start > climb.end) : climbs.filter(x => x.start > pos);
+        const after = liveClimb ? climbs.filter(x => x.start > liveClimb.end) : climbs.filter(x => x.start > pos);
         for (const c of after.slice(0, count)) {
             upcoming.push({climb: c, toStart: c.start - pos});
         }
@@ -568,14 +736,17 @@ function render() {
     setBadge(header.querySelector('.cat-badge'), climb);
     header.querySelector('.climb-name').textContent = climbTitle(climb);
     header.querySelector('.climb-meta').textContent =
-        `${climb.index + 1}/${climbs.length} · max ${toText(formatGrade(climb.maxGrade, 0))}` +
-        (positionUnknown ? ' · position unknown' : '');
+        (previewing ? 'Preview · ' : '') +
+        `${climbNumber(climb).join('/')} · max ${toText(formatGrade(climb.maxGrade, 0))}` +
+        (positionUnknown && !previewing ? ' · position unknown' : '');
+    // "Starts at" (from the route start) when we can't say how far away it is
+    const showAt = positionUnknown || (progress.state === 'approaching' && progress.toStart == null);
     if (progress.state === 'climbing') {
         setStat(0, 'To top', formatDistance(progress.remaining, imperial));
         setStat(1, 'Climb left', formatElevation(progress.remainingAscent, imperial));
         setStat(2, 'Grade', formatGrade(state.grade));
         setStat(3, 'Avg left', formatGrade(progress.remainingGrade));
-    } else if (positionUnknown) {
+    } else if (showAt) {
         setStat(0, 'Starts at', formatDistance(climb.start, imperial));
         setStat(1, 'Length', formatDistance(climb.length, imperial));
         setStat(2, 'Ascent', formatElevation(climb.ascent, imperial));
@@ -586,7 +757,7 @@ function render() {
         setStat(2, 'Ascent', formatElevation(climb.ascent, imperial));
         setStat(3, 'Avg grade', formatGrade(climb.avgGrade));
     }
-    renderProfile(climb, pos, progress, positionUnknown);
+    renderProfile(climb, pos, progress, showAt);
 }
 
 function applyAppearance() {
@@ -611,6 +782,18 @@ export async function main() {
         render();
     });
     new ResizeObserver(() => render()).observe(document.querySelector('.profile'));
+    document.getElementById('route-climbs-button').addEventListener('click', () => {
+        showList = !showList;
+        render();
+    });
+    document.querySelector('.route-list-close').addEventListener('click', () => {
+        showList = false;
+        render();
+    });
+    document.querySelector('.preview-close').addEventListener('click', () => {
+        previewIndex = null;
+        render();
+    });
     common.subscribe('athlete/watching', onWatching);
     render();
 }
