@@ -3,11 +3,10 @@ import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChun
         autoChunkLength, elevationAt, gradeAt, DETECTION_SCORES} from './climbs.mjs';
 import {gradeColor} from './colors.mjs';
 import {fallbackClimbName} from './names.mjs';
-import {resolveImperial, formatDistance, formatElevation, formatGrade, toText} from './units.mjs';
+import {resolveImperial, formatDistance, formatElevation, formatGrade, toText, metersPerMile} from './units.mjs';
 
 const doc = document.documentElement;
 const svgNS = 'http://www.w3.org/2000/svg';
-const metersPerMile = 1609.344;
 
 common.settingsStore.setDefault({
     detection: 'small',
@@ -59,6 +58,9 @@ function neededLaps(route, state) {
 let lastRoute = null;
 const routeMemoryMs = 120000;
 
+// routeId -> whether the route supports laps (learned when the route loads)
+const routeLapsSupport = new Map();
+
 function courseKey(state) {
     if (state.eventSubgroupId) {
         return `event:${state.eventSubgroupId}`;
@@ -70,7 +72,8 @@ function courseKey(state) {
         routeId = lastRoute.routeId;
     }
     if (routeId) {
-        return `route:${routeId}:${Math.max(2, (state.laps || 0) + 2)}`;
+        const laps = routeLapsSupport.get(routeId) === false ? 1 : Math.max(2, (state.laps || 0) + 2);
+        return `route:${routeId}:${laps}`;
     } else if (state.roadId != null) {
         return `road:${state.courseId}:${state.roadId}:${!!state.reverse}`;
     }
@@ -113,6 +116,10 @@ async function buildRouteCourse(state, key) {
     if (!route || !route.distances || !route.elevations) {
         return null;
     }
+    if (!state.eventSubgroupId) {
+        routeLapsSupport.set(routeId, !!route.supportedLaps);
+        key = courseKey(state);
+    }
     if (laps == null) {
         laps = neededLaps(route, state);
     }
@@ -135,7 +142,7 @@ async function buildRouteCourse(state, key) {
     const weld = route.lapWeldData;
     const weldLength = weld && weld.distances ? weld.distances[weld.distances.length - 1] : 0;
     const lapList = [{offset: 0, distance: distances[distances.length - 1], lapStart: preludeDist}];
-    for (let lap = 1; lap < laps; lap++) {
+    for (let lap = 1; lap < laps && !(distance && distances[distances.length - 1] >= distance); lap++) {
         const offset = distances[distances.length - 1];
         if (weld && weld.distances) {
             for (let i = 0; i < weld.distances.length; i++) {
@@ -150,17 +157,21 @@ async function buildRouteCourse(state, key) {
         }
         lapList.push({offset, distance: distances[distances.length - 1] - offset,
                       lapStart: offset + weldLength});
-        if (distance && distances[distances.length - 1] >= distance) {
-            break;
-        }
+    }
+    for (const lap of lapList) {
+        lap.fullDistance = lap.distance;  // untruncated, for positioning by distance left in the lap
     }
     if (distance) {
         while (distances.length > 2 && distances[distances.length - 1] > distance) {
             distances.pop();
             elevations.pop();
         }
+        const end = distances[distances.length - 1];
+        while (lapList.length > 1 && lapList[lapList.length - 1].offset >= end) {
+            lapList.pop();
+        }
         const last = lapList[lapList.length - 1];
-        last.distance = distances[distances.length - 1] - last.offset;
+        last.distance = end - last.offset;
     }
     // Named segments (KOMs etc.) for naming climbs
     const routeSegments = (route.segments || []).filter(x => !x.weldOnly);
@@ -236,7 +247,7 @@ function routePosition(state) {
         (!state.routeId || state.routeId === course.routeId)) {
         // The lap finish line is fixed, so use the distance left in the lap.
         positionSource = 'sauce';
-        return lap.offset + lap.distance - (state.routeEnd - state.routeDistance);
+        return lap.offset + lap.fullDistance - (state.routeEnd - state.routeDistance);
     }
     // 2. Estimate from the game's lap progress (0-1)
     let estimate;
@@ -264,7 +275,8 @@ function routePosition(state) {
         positionSource = `road match (${candidates.length})`;
         // Pick the match nearest to: where the rider just was, else (first lap) the
         // distance ridden, else the lap progress estimate.
-        let ref = lastPosition && Date.now() - lastPosition.time < 30000 ? lastPosition.pos : null;
+        let ref = lastPosition && lastPosition.base === baseKey(course.key) &&
+            Date.now() - lastPosition.time < 30000 ? lastPosition.pos : null;
         if (ref == null && lapIdx === 0) {
             if (Number.isFinite(state.eventDistance) && state.eventDistance >= 0 && state.eventDistance < 500000) {
                 ref = state.eventDistance;
@@ -295,7 +307,7 @@ function coursePosition(state) {
     if (course.mode === 'route') {
         const pos = routePosition(state);
         if (pos != null && Number.isFinite(pos)) {
-            lastPosition = {pos, time: Date.now()};
+            lastPosition = {pos, time: Date.now(), base: baseKey(course.key)};
             return pos;
         }
         return null;
@@ -353,16 +365,30 @@ function detect() {
     if (!course) {
         profile = null;
         climbs = [];
+        previewIndex = null;
         return;
     }
-    previewIndex = null;
     profile = buildProfile(course.distances, course.elevations);
+    const previewStart = previewIndex != null && climbs[previewIndex] ? climbs[previewIndex].start : null;
     climbs = detectClimbs(profile, {
         minScore: DETECTION_SCORES[settings().detection] || DETECTION_SCORES.small,
         segments: course.segments,
     });
     nameClimbs();
+    if (previewStart != null) {
+        const same = climbs.find(c => Math.abs(c.start - previewStart) < 1);
+        previewIndex = same ? same.index : null;
+    }
 }
+
+// Course key without the planned lap count (same route, same ride)
+function baseKey(key) {
+    return key ? key.replace(/^(route:[^:]+):\d+$/, '$1') : key;
+}
+
+let failedBuild = null;   // {key, time}: don't retry a failed load every update
+let lastAthleteId = null;
+let lastBaseKey = null;
 
 async function onWatching(ad) {
     const state = ad && ad.state;
@@ -370,16 +396,32 @@ async function onWatching(ad) {
         return;
     }
     lastState = state;
+    if (ad.athleteId !== lastAthleteId) {
+        // Watching someone else: forget where the previous rider was
+        lastAthleteId = ad.athleteId;
+        lastPosition = null;
+        previewIndex = null;
+    }
     const key = courseKey(state);
+    if (baseKey(key) !== lastBaseKey) {
+        lastBaseKey = baseKey(key);
+        lastPosition = null;
+        previewIndex = null;
+    }
+    const recentlyFailed = failedBuild && failedBuild.key === key && Date.now() - failedBuild.time < 15000;
     if (!key) {
-        course = null;
-        detect();
-    } else if ((!course || course.key !== key) && !building) {
+        if (course) {
+            course = null;
+            detect();
+        }
+    } else if ((!course || course.key !== key) && !building && !recentlyFailed) {
         building = buildCourse(state, key).then(c => {
             course = c;
+            failedBuild = c ? null : {key, time: Date.now()};
             detect();
         }).catch(e => {
             console.error('Hill Radar: failed to load course', e);
+            failedBuild = {key, time: Date.now()};
             course = null;
             detect();
         }).finally(() => {
@@ -530,30 +572,43 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     }
 }
 
-function renderUpcoming(list, positionUnknown) {
-    const el = document.querySelector('.upcoming');
-    const imperial = isImperial();
+// One row of a climb list (upcoming climbs and the route climbs list).
+function climbRow(c, {title, where, classes=[]}) {
     const s = settings();
-    const rows = list.map(({climb: c, toStart}) => {
-        const row = document.createElement('div');
-        row.className = 'row';
-        const swatch = document.createElement('span');
-        swatch.className = 'swatch';
-        swatch.style.background = gradeColor(c.avgGrade, s.colorScheme, 1);
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = climbTitle(c);
-        const badge = document.createElement('span');
-        setBadge(badge, c);
-        const info = document.createElement('span');
-        info.textContent = `${positionUnknown ? 'at' : 'in'} ${toText(formatDistance(toStart, imperial))} · ` +
-            `${toText(formatDistance(c.length, imperial))} · ${toText(formatGrade(c.avgGrade))} · ` +
-            `${toText(formatElevation(c.ascent, imperial))}`;
-        row.append(swatch, name, badge, info);
-        row.addEventListener('click', () => preview(c.index));
-        return row;
-    });
-    el.replaceChildren(...rows);
+    const imperial = isImperial();
+    const row = document.createElement('div');
+    row.className = ['row', ...classes].join(' ');
+    row.dataset.index = c.index;
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = gradeColor(c.avgGrade, s.colorScheme, 1);
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = title;
+    const badge = document.createElement('span');
+    setBadge(badge, c);
+    const info = document.createElement('span');
+    info.textContent = `${where} · ${toText(formatDistance(c.length, imperial))} · ` +
+        `${toText(formatGrade(c.avgGrade))} · ${toText(formatElevation(c.ascent, imperial))}`;
+    row.append(swatch, name, badge, info);
+    return row;
+}
+
+// Replace a list's rows only when they changed, so a click isn't lost to an update.
+function setRows(el, rows) {
+    const sig = rows.map(x => x.outerHTML).join('');
+    if (el._sig !== sig) {
+        el._sig = sig;
+        el.replaceChildren(...rows);
+    }
+}
+
+function renderUpcoming(list, positionUnknown) {
+    const imperial = isImperial();
+    setRows(document.querySelector('.upcoming'), list.map(({climb: c, toStart}) => climbRow(c, {
+        title: climbTitle(c),
+        where: `${positionUnknown ? 'at' : 'in'} ${toText(formatDistance(toStart, imperial))}`,
+    })));
 }
 
 function preview(index) {
@@ -588,37 +643,25 @@ function routeListClimbs(pos, positionUnknown) {
 function renderRouteList(pos, positionUnknown) {
     const el = document.querySelector('.route-list');
     const imperial = isImperial();
-    const s = settings();
     const {lap, list} = routeListClimbs(pos, positionUnknown);
     const multiLap = course && !isOpenEnded() && course.laps && course.laps.length > 1;
     el.querySelector('.route-list-title').textContent =
         `${course?.name || 'Road ahead'}${lap != null ? ` · lap ${lap + 1}` : ''} · ` +
         `${list.length} climb${list.length === 1 ? '' : 's'}`;
     const rows = list.map(c => {
-        const row = document.createElement('div');
-        row.className = 'row';
+        const classes = [];
         if (!positionUnknown && pos != null) {
             if (c.end < pos) {
-                row.classList.add('passed');
+                classes.push('passed');
             } else if (c.start <= pos) {
-                row.classList.add('current');
+                classes.push('current');
             }
         }
-        const swatch = document.createElement('span');
-        swatch.className = 'swatch';
-        swatch.style.background = gradeColor(c.avgGrade, s.colorScheme, 1);
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = `${c.index + 1}. ${climbTitle(c)}` + (multiLap ? ` (lap ${lapOf(c.start) + 1})` : '');
-        const badge = document.createElement('span');
-        setBadge(badge, c);
-        const info = document.createElement('span');
-        info.textContent = `at ${toText(formatDistance(c.start, imperial))} · ` +
-            `${toText(formatDistance(c.length, imperial))} · ${toText(formatGrade(c.avgGrade))} · ` +
-            `${toText(formatElevation(c.ascent, imperial))}`;
-        row.append(swatch, name, badge, info);
-        row.addEventListener('click', () => preview(c.index));
-        return row;
+        return climbRow(c, {
+            title: `${c.index + 1}. ${climbTitle(c)}` + (multiLap ? ` (lap ${lapOf(c.start) + 1})` : ''),
+            where: `at ${toText(formatDistance(c.start, imperial))}`,
+            classes,
+        });
     });
     if (!rows.length) {
         const empty = document.createElement('div');
@@ -626,7 +669,7 @@ function renderRouteList(pos, positionUnknown) {
         empty.textContent = course ? 'No climbs on this route' : 'No route selected';
         rows.push(empty);
     }
-    el.querySelector('.rows').replaceChildren(...rows);
+    setRows(el.querySelector('.rows'), rows);
 }
 
 function renderDebug(state, pos, positionUnknown) {
@@ -679,7 +722,9 @@ function render() {
         } else {
             climb = currentOrNextClimb(climbs, pos);
             if (climb) {
-                progress = riderProgress(profile, climb, pos);
+                progress = positionUnknown ?
+                    {state: 'approaching', toStart: null} :
+                    riderProgress(profile, climb, pos);
                 const approach = Number(s.approachDistance) || 0;
                 const approachMeters = approach * (imperial ? metersPerMile : 1000);
                 if (!positionUnknown && progress.state === 'approaching' && approach > 0 &&
@@ -783,6 +828,16 @@ export async function main() {
         render();
     });
     new ResizeObserver(() => render()).observe(document.querySelector('.profile'));
+    // Clicking any listed climb previews it. pointerdown on the list itself, so a
+    // press is never lost when the rows update.
+    for (const list of document.querySelectorAll('.upcoming, .route-list .rows')) {
+        list.addEventListener('pointerdown', ev => {
+            const row = ev.target.closest('.row[data-index]');
+            if (row && ev.button === 0) {
+                preview(Number(row.dataset.index));
+            }
+        });
+    }
     document.getElementById('route-climbs-button').addEventListener('click', () => {
         showList = !showList;
         render();

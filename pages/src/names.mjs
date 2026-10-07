@@ -44,6 +44,9 @@ export function fallbackClimbName(routeName, climb, laps) {
     let bestOverlap = 0;
     for (const [i, lap] of lapList.entries()) {
         for (const x of list) {
+            if (i > 0 && x.start < firstLapStart) {
+                continue;  // in the lead-in, which is only ridden once
+            }
             const a = i === 0 ? x.start : lap.lapStart + (x.start - firstLapStart);
             const b = a + x.length;
             const overlap = Math.min(b, climb.end) - Math.max(a, climb.start);

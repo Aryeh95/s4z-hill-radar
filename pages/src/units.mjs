@@ -1,6 +1,6 @@
 // Unit formatting. Pure module; the caller decides imperial vs metric.
 
-const metersPerMile = 1609.344;
+export const metersPerMile = 1609.344;
 const feetPerMeter = 3.28084;
 
 /**
@@ -27,13 +27,15 @@ export function formatDistance(meters, imperial) {
         if (miles < 0.1) {
             return {value: Math.round(meters * feetPerMeter).toString(), unit: 'ft'};
         }
-        return {value: miles.toFixed(miles < 10 ? 2 : 1), unit: 'mi'};
+        // Pick decimals after rounding so 9.996 mi shows as 10.0, not 10.00
+        return {value: miles.toFixed(Number(miles.toFixed(2)) < 10 ? 2 : 1), unit: 'mi'};
     }
-    if (meters < 1000) {
-        return {value: (Math.round(meters / 10) * 10).toString(), unit: 'm'};
+    const rounded = Math.round(meters / 10) * 10;
+    if (rounded < 1000) {
+        return {value: rounded.toString(), unit: 'm'};
     }
     const km = meters / 1000;
-    return {value: km.toFixed(km < 10 ? 2 : 1), unit: 'km'};
+    return {value: km.toFixed(Number(km.toFixed(2)) < 10 ? 2 : 1), unit: 'km'};
 }
 
 // Elevation (height) in m or ft.
@@ -50,8 +52,9 @@ export function formatGrade(grade, digits=1) {
     if (!Number.isFinite(grade)) {
         return {value: '-', unit: '%'};
     }
-    const v = grade * 100;
-    return {value: (Object.is(Math.round(v * 10), -0) ? 0 : v).toFixed(digits), unit: '%'};
+    const text = (grade * 100).toFixed(digits);
+    // Avoid "-0%" / "-0.0%" for tiny negative grades
+    return {value: Number(text) === 0 ? (0).toFixed(digits) : text, unit: '%'};
 }
 
 export function toText(f) {

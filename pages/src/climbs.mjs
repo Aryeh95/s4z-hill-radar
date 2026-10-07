@@ -85,12 +85,12 @@ export function buildProfile(distances, elevations, {step=DEFAULTS.step,
         e[i] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
     }
     // Light smoothing for coloring; climbing (asc) is summed from the unsmoothed data.
-    const ascHalf = Math.max(0, Math.round(colorSmoothDistance / step / 2));
+    const colorHalf = Math.max(0, Math.round(colorSmoothDistance / step / 2));
     const fine = new Float64Array(n);
     const asc = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-        const lo = Math.max(0, i - ascHalf);
-        const hi = Math.min(n - 1, i + ascHalf);
+        const lo = Math.max(0, i - colorHalf);
+        const hi = Math.min(n - 1, i + colorHalf);
         fine[i] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
         if (i) {
             asc[i] = asc[i - 1] + Math.max(0, raw[i] - raw[i - 1]);
@@ -400,7 +400,12 @@ export function detectClimbs(profile, options={}) {
             endElevation: raw[b],
             segment: segment || null,
         };
-    });
+    }).filter(c => {
+        // Found on the smoothed profile; make sure the shown (unsmoothed) numbers
+        // also meet the rules, so a listed climb never shows e.g. 2.9%.
+        return c.avgGrade >= o.minGrade && c.score >= o.minScore &&
+            (c.segment || c.length >= o.minLength);
+    }).map((c, index) => ({...c, index}));
 }
 
 

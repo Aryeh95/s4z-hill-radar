@@ -279,3 +279,19 @@ test('short official KOM under 500 m counts if steep enough (23rd St style)', ()
     const p2 = buildProfile(flat.distances, flat.elevations);
     assert.equal(detectClimbs(p2, {segments: [{name: 'Kicker', start: 2000, end: 2300}]}).length, 0);
 });
+
+test('unit formatting edge cases', () => {
+    assert.equal(toText(formatDistance(996, false)), '1.00\u202fkm');
+    assert.equal(toText(formatDistance(994, false)), '990\u202fm');
+    assert.equal(toText(formatDistance(9.999 * 1609.344, true)), '10.0\u202fmi');
+    assert.equal(toText(formatGrade(-0.003, 0)), '0%');
+    assert.equal(toText(formatGrade(-0.0004, 1)), '0.0%');
+    assert.equal(toText(formatGrade(-0.006, 0)), '-1%');
+});
+
+test('lead-in climb names are not repeated on later laps', () => {
+    // Pen to Village Climb starts at 0 on Makuri 40 (in the lead-in)
+    const laps = [{lapStart: 1000}, {lapStart: 20000}];
+    assert.equal(fallbackClimbName('Makuri 40', {start: 0, end: 1400, length: 1400}, laps), 'Pen to Village Climb (Makuri)');
+    assert.equal(fallbackClimbName('Makuri 40', {start: 19000, end: 20400, length: 1400}, laps), null);
+});
