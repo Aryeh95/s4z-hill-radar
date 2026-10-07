@@ -52,7 +52,7 @@ export function climbCategory(score) {
  */
 export function buildProfile(distances, elevations, {step=DEFAULTS.step,
                                                      smoothDistance=DEFAULTS.smoothDistance,
-                                                     ascentSmoothDistance=40}={}) {
+                                                     colorSmoothDistance=40}={}) {
     if (!distances || distances.length < 2 || distances.length !== elevations.length) {
         return null;
     }
@@ -84,8 +84,8 @@ export function buildProfile(distances, elevations, {step=DEFAULTS.step,
         const hi = Math.min(n - 1, i + half);
         e[i] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
     }
-    // Total ascent uses lighter smoothing so the climbing out of dips is counted.
-    const ascHalf = Math.max(0, Math.round(ascentSmoothDistance / step / 2));
+    // Light smoothing for coloring; climbing (asc) is summed from the unsmoothed data.
+    const ascHalf = Math.max(0, Math.round(colorSmoothDistance / step / 2));
     const fine = new Float64Array(n);
     const asc = new Float64Array(n);
     for (let i = 0; i < n; i++) {
@@ -93,10 +93,13 @@ export function buildProfile(distances, elevations, {step=DEFAULTS.step,
         const hi = Math.min(n - 1, i + ascHalf);
         fine[i] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
         if (i) {
-            asc[i] = asc[i - 1] + Math.max(0, fine[i] - fine[i - 1]);
+            asc[i] = asc[i - 1] + Math.max(0, raw[i] - raw[i - 1]);
         }
     }
-    return {start, end, step, e, fine, asc, length: end - start};
+    // e: smoothed, for detecting climbs. raw: unsmoothed, for every number shown
+    // (gain, grades, climbing left) so they match the game. fine: lightly smoothed,
+    // for coloring. asc: cumulative climbing from raw.
+    return {start, end, step, e, raw, fine, asc, length: end - start};
 }
 
 
@@ -112,8 +115,9 @@ function interp(arr, profile, distance) {
     return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
 }
 
+// Unsmoothed elevation (what the game reports) at `distance`.
 export function elevationAt(profile, distance) {
-    return interp(profile.e, profile, distance);
+    return interp(profile.raw, profile, distance);
 }
 
 export function ascentAt(profile, distance) {
@@ -376,7 +380,9 @@ export function detectClimbs(profile, options={}) {
     ranges.sort((x, y) => x[0] - y[0]);
     return ranges.map(([a, b, segment], index) => {
         const length = (b - a) * step;
-        const gain = e[b] - e[a];
+        // Reported numbers use the unsmoothed elevation to match the game.
+        const {raw} = profile;
+        const gain = raw[b] - raw[a];
         const avgGrade = gain / length;
         const score = length * avgGrade * 100;
         return {
@@ -387,11 +393,11 @@ export function detectClimbs(profile, options={}) {
             gain,
             ascent: profile.asc[b] - profile.asc[a],
             avgGrade,
-            maxGrade: maxGradeOver(e, step, a, b),
+            maxGrade: maxGradeOver(raw, step, a, b),
             score,
             category: climbCategory(score),
-            startElevation: e[a],
-            endElevation: e[b],
+            startElevation: raw[a],
+            endElevation: raw[b],
             segment: segment || null,
         };
     });

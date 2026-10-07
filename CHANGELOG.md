@@ -7,6 +7,7 @@
 - Official Zwift climb segments (KOMs) name a climb and extend it to the segment's start and end, never shortening it. Official KOMs don't need the 500 m minimum length (e.g. Innsbruck's Leg Snapper), but still need 3% and the score.
 - Names for well-known unofficial climbs (from Brian Mudge's S4Z mods, plus San Luca on the Bologna Time Trial).
 - Remaining elevation counts all the climbing left to the top, including re-climbing dips.
+- Shown numbers (gain, average and max grade, climbing left, section grades) use the unsmoothed elevation so they match the game; smoothing is only used to find climbs.
 - Gradient-colored profile of the climb, colored point by point (or by sections), with rider position, section grades and summit elevation.
 - Route climbs list: every climb on the route; click any climb (in the list or the upcoming climbs) to preview it.
 - Upcoming climbs list.
