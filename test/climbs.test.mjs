@@ -194,3 +194,47 @@ test('units', () => {
     assert.equal(toText(formatGrade(0.0849)), '8.5%');
     assert.equal(toText(formatGrade(-0.0001)), '0.0%');
 });
+
+test('official climb segment sets the climb start and end', () => {
+    // Climb 1000-3000 m at 5%, then 500 m flat top included in the segment
+    const {distances, elevations} = makeProfile([[1000, 0], [2000, 0.05], [1500, 0]]);
+    const profile = buildProfile(distances, elevations);
+    const segments = [{name: 'Test KOM', start: 900, end: 3500}];
+    const climbs = detectClimbs(profile, {segments});
+    assert.equal(climbs.length, 1);
+    assert.equal(climbs[0].start, 900);
+    assert.equal(climbs[0].end, 3500);
+    assert.equal(climbs[0].segment.name, 'Test KOM');
+});
+
+test('official segment rescues a borderline climb and joins a split one', () => {
+    // 1 km @ 5%, 600 m flat, 1 km @ 5%: terrain alone gives two climbs
+    const {distances, elevations} = makeProfile([[500, 0], [1000, 0.05], [600, 0], [1000, 0.05], [500, 0]]);
+    const profile = buildProfile(distances, elevations);
+    assert.equal(detectClimbs(profile).length, 2);
+    const climbs = detectClimbs(profile, {segments: [{name: 'KOM', start: 500, end: 3100}]});
+    assert.equal(climbs.length, 1);
+    assert.equal(climbs[0].segment.name, 'KOM');
+});
+
+test('segments that are not climbs are ignored', () => {
+    const {distances, elevations} = makeProfile([[1000, 0], [2000, 0.05], [3000, 0]]);
+    const profile = buildProfile(distances, elevations);
+    const segments = [
+        {name: 'Sprint', start: 4000, end: 4400},         // flat
+        {name: 'Lap', start: 0, end: 6000},               // whole loop, under 3%
+    ];
+    const climbs = detectClimbs(profile, {segments});
+    assert.equal(climbs.length, 1);
+    assert.equal(climbs[0].segment, null);
+});
+
+test('detected climb partly outside a segment keeps its outside part if still a climb', () => {
+    // 2 km @ 6% then 1.5 km @ 6%; segment only covers the second part
+    const {distances, elevations} = makeProfile([[500, 0], [2000, 0.06], [1500, 0.06], [500, 0]]);
+    const profile = buildProfile(distances, elevations);
+    const climbs = detectClimbs(profile, {segments: [{name: 'Top KOM', start: 2500, end: 4000}]});
+    assert.equal(climbs.length, 2);
+    assert.equal(climbs[1].segment.name, 'Top KOM');
+    assert.ok(climbs[0].end <= 2500);
+});

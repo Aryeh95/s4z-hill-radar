@@ -32,7 +32,7 @@ Climbs continue through dips and short descents, so a climb with a dip in the mi
 
 Detection works on routes and events (including multi-lap and distance-based events). When riding without a route, it uses the current road only.
 
-When a climb lines up with a Zwift KOM segment on the route, it uses the segment's name.
+When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and its exact official start and end. The segment still has to meet the climb rules above (500 m, 3%, and the detection size), so sprints, laps and very gentle segments are not shown as climbs. Climbs without an official segment are found from the elevation profile.
 
 ## Settings
 

@@ -30,8 +30,12 @@ const DEFAULTS = {
     minGrade: 0.03,         // 3%
     step: 20,               // m, resample resolution
     smoothDistance: 100,    // m, moving average window for elevation
-    dipGap: 1000,           // m, max distance without a new high point before a climb ends
-    mergeDescent: 1500,     // m, max length of a descent between two climb parts that get merged
+    dipGap: 400,            // m, max distance without a new high point before a climb part ends
+    mergeGap: 400,          // m, gap allowed between two climb parts that get merged...
+    mergeGapPerDipMeter: 40, // ...plus this many m per m of dip (a real dip takes longer to ride)
+    flatSplitLength: 500,   // m, a flat section at least this long inside a climb splits it...
+    flatSplitGrade: 0.015,  // ...when flatter than this...
+    flatSplitRange: 8,      // ...and its height varies less than this (m), so dips are not flats
     trimWindow: 100,        // m, window used to trim flat ends off a climb
     trimGrade: 0.02,        // ends flatter than this (or half the climb's grade) are trimmed
 };
@@ -161,6 +165,7 @@ function findCandidates(e, step, o) {
 
 // Join climb parts that are separated by a dip, as long as the climb carries on
 // higher afterwards and the dip is small compared to what was already climbed.
+// Long flat sections keep parts separate; dips get more room the deeper they are.
 function mergeDips(cands, e, step, o) {
     let merged = true;
     while (merged && cands.length > 1) {
@@ -171,9 +176,10 @@ function mergeDips(cands, e, step, o) {
             const gain1 = e[p1] - e[s1];
             const dip = e[p1] - e[s2];
             const climbStart2 = trim(e, step, s2, p2, o)[0];
+            const gapAllowed = o.mergeGap + Math.max(0, dip) * o.mergeGapPerDipMeter;
             if (e[p2] > e[p1] &&
                 dip <= Math.max(15, gain1 * 0.5) &&
-                (climbStart2 - p1) * step <= o.mergeDescent) {
+                (climbStart2 - p1) * step <= gapAllowed) {
                 cands.splice(i, 2, [s1, p2]);
                 merged = true;
                 break;
@@ -233,8 +239,42 @@ function bestSubInterval(e, step, a, b, o) {
 }
 
 
+// Flattest long, near-level window strictly inside [a, b], if any.
+function findFlat(e, step, a, b, o) {
+    const w = Math.round(o.flatSplitLength / step);
+    let best = null;
+    let bestGrade = Infinity;
+    for (let i = a + 1; i + w < b; i++) {
+        const grade = Math.abs(e[i + w] - e[i]) / (w * step);
+        if (grade >= o.flatSplitGrade || grade >= bestGrade) {
+            continue;
+        }
+        let min = Infinity;
+        let max = -Infinity;
+        for (let k = i; k <= i + w; k++) {
+            min = Math.min(min, e[k]);
+            max = Math.max(max, e[k]);
+        }
+        if (max - min < o.flatSplitRange) {
+            best = i;
+            bestGrade = grade;
+        }
+    }
+    return best;
+}
+
+
 function extract(e, step, a, b, o, out, depth=0) {
     if ((b - a) * step < o.minLength || depth > 20) {
+        return;
+    }
+    const flat = findFlat(e, step, a, b, o);
+    if (flat != null) {
+        // Split in the middle of the flat; trimming removes the flat halves
+        // without cutting into a ramp.
+        const mid = flat + Math.round(o.flatSplitLength / step / 2);
+        extract(e, step, a, mid, o, out, depth + 1);
+        extract(e, step, mid, b, o, out, depth + 1);
         return;
     }
     const [ta, tb] = trim(e, step, a, b, o);
@@ -268,8 +308,56 @@ function maxGradeOver(e, step, a, b, window=100) {
 }
 
 
+// Official climb segments (e.g. Zwift KOM segments) define their climb exactly:
+// a segment that is a climb by the rules becomes a climb with the segment's
+// start and end, replacing detected climbs it overlaps. Segments that are not
+// climbs (sprints, loops, very gentle segments) are ignored. Where qualifying
+// segments overlap each other, the longest one is used.
+function applySegments(ranges, segments, profile, o) {
+    const {e, step} = profile;
+    const n = e.length;
+    const candidates = [];
+    for (const seg of segments) {
+        const a = Math.max(0, Math.round((seg.start - profile.start) / step));
+        const b = Math.min(n - 1, Math.round((seg.end - profile.start) / step));
+        if (b > a && passes(e, step, a, b, o)) {
+            candidates.push({a, b, seg});
+        }
+    }
+    candidates.sort((x, y) => (y.b - y.a) - (x.b - x.a));
+    const accepted = [];
+    for (const c of candidates) {
+        if (!accepted.some(x => Math.min(x.b, c.b) - Math.max(x.a, c.a) > 0)) {
+            accepted.push(c);
+        }
+    }
+    for (const {a, b} of accepted) {
+        ranges = ranges.flatMap(r => {
+            const overlap = Math.min(r[1], b) - Math.max(r[0], a);
+            if (overlap <= 0) {
+                return [r];
+            } else if (overlap >= (r[1] - r[0]) * 0.5) {
+                return [];  // mostly the same climb
+            }
+            // Keep the part outside the segment if it is still a climb
+            const parts = [];
+            if (r[0] < a) {
+                parts.push(trim(e, step, r[0], a, o));
+            }
+            if (r[1] > b) {
+                parts.push(trim(e, step, b, r[1], o));
+            }
+            return parts.filter(([x, y]) => passes(e, step, x, y, o));
+        });
+    }
+    return ranges.concat(accepted.map(x => [x.a, x.b, x.seg]));
+}
+
+
 /**
  * Detect climbs in a profile made by buildProfile().
+ * options.segments: [{start, end, ...}] official climb segments (e.g. Zwift KOMs) on
+ * the same distance scale. Climbs from a segment carry it as `climb.segment`.
  * Returns climbs sorted by start distance.
  */
 export function detectClimbs(profile, options={}) {
@@ -279,12 +367,15 @@ export function detectClimbs(profile, options={}) {
     const o = {...DEFAULTS, ...options};
     const {e, step} = profile;
     const cands = mergeDips(findCandidates(e, step, o), e, step, o);
-    const ranges = [];
+    let ranges = [];
     for (const [a, b] of cands) {
         extract(e, step, a, b, o, ranges);
     }
+    if (o.segments && o.segments.length) {
+        ranges = applySegments(ranges, o.segments, profile, o);
+    }
     ranges.sort((x, y) => x[0] - y[0]);
-    return ranges.map(([a, b], index) => {
+    return ranges.map(([a, b, segment], index) => {
         const length = (b - a) * step;
         const gain = e[b] - e[a];
         const avgGrade = gain / length;
@@ -302,6 +393,7 @@ export function detectClimbs(profile, options={}) {
             category: climbCategory(score),
             startElevation: e[a],
             endElevation: e[b],
+            segment: segment || null,
         };
     });
 }

@@ -218,6 +218,10 @@ function coursePosition(state) {
 
 function nameClimbs() {
     for (const c of climbs) {
+        if (c.segment) {
+            c.name = c.segment.name;
+            continue;
+        }
         let best;
         let bestOverlap = 0;
         for (const s of course.segments) {
@@ -240,7 +244,10 @@ function detect() {
         return;
     }
     profile = buildProfile(course.distances, course.elevations);
-    climbs = detectClimbs(profile, {minScore: DETECTION_SCORES[settings().detection] || DETECTION_SCORES.small});
+    climbs = detectClimbs(profile, {
+        minScore: DETECTION_SCORES[settings().detection] || DETECTION_SCORES.small,
+        segments: course.segments,
+    });
     nameClimbs();
 }
 
