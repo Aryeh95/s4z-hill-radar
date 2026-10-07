@@ -10,6 +10,7 @@
 - Gradient-colored profile of the climb, colored point by point (or by sections), with rider position, section grades and summit elevation.
 - Route climbs list: every climb on the route; click any climb (in the list or the upcoming climbs) to preview it.
 - Upcoming climbs list.
+- Climbs are numbered from the start of the ride across all laps (e.g. 4/6 · lap 2 in an event, #5 · lap 3 on a free ride), so climbs already done are counted.
 - Rider position from Sauce's route distance, or by matching the rider's road position to the route, or the game's lap progress.
 - Units: Auto (Sauce setting), Metric or Imperial.
 - Color schemes: Classic, Sauce, Veloviewer (ish), CVD-BuRd, CVD-PRGn, CVD-Sunset.

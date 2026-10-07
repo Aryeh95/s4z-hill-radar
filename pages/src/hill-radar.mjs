@@ -400,23 +400,22 @@ function setStat(i, label, f) {
     el.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
 }
 
-// Climbs in the same lap as `c` (whole course when there are no laps).
-function climbsInLap(c) {
-    if (!course || !course.laps || course.laps.length < 2) {
-        return climbs;
-    }
-    const lap = lapOf(c.start);
-    return climbs.filter(x => lapOf(x.start) === lap);
+// Free ride on a lapped route: the course is planned a few laps ahead with no end.
+function isOpenEnded() {
+    return !!(course && course.key.startsWith('route:') && course.laps && course.laps.length > 1);
 }
 
-// [number, count] of a climb within its lap
-function climbNumber(c) {
-    const list = climbsInLap(c);
-    return [list.indexOf(c) + 1, list.length];
+// Climbs are numbered from the start of the ride, counting every lap, so the
+// climbs already done are included. The course always starts at the beginning
+// of the ride, so this also holds after reopening the window mid-ride.
+function climbNumberText(c) {
+    const n = c.index + 1;
+    const lap = course && course.laps && course.laps.length > 1 ? ` · lap ${lapOf(c.start) + 1}` : '';
+    return (isOpenEnded() ? `#${n}` : `${n}/${climbs.length}`) + lap;
 }
 
 function climbTitle(c) {
-    return c.name || `Climb ${climbNumber(c)[0]}`;
+    return c.name || `Climb ${c.index + 1}`;
 }
 
 function setBadge(el, c) {
@@ -576,23 +575,25 @@ function lapOf(distance) {
     return lap;
 }
 
-// Climbs to list for the route: for free rides the route is planned a few laps
-// ahead, so list one lap's worth; events list everything.
-function routeListClimbs() {
-    if (course && course.mode === 'route' && course.key.startsWith('route:') && course.laps.length > 1) {
-        return climbs.filter(c => c.start < course.laps[0].distance);
+// Climbs to list for the route: free rides are planned a few laps ahead, so list
+// the lap being ridden; events list everything.
+function routeListClimbs(pos, positionUnknown) {
+    if (isOpenEnded()) {
+        const lap = pos != null && !positionUnknown ? lapOf(pos) : 0;
+        return {lap, list: climbs.filter(c => lapOf(c.start) === lap)};
     }
-    return climbs;
+    return {lap: null, list: climbs};
 }
 
 function renderRouteList(pos, positionUnknown) {
     const el = document.querySelector('.route-list');
     const imperial = isImperial();
     const s = settings();
-    const list = routeListClimbs();
-    const multiLap = course && course.key.startsWith('event:') && course.laps.length > 1;
+    const {lap, list} = routeListClimbs(pos, positionUnknown);
+    const multiLap = course && !isOpenEnded() && course.laps && course.laps.length > 1;
     el.querySelector('.route-list-title').textContent =
-        `${course?.name || 'Road ahead'} · ${list.length} climb${list.length === 1 ? '' : 's'}`;
+        `${course?.name || 'Road ahead'}${lap != null ? ` · lap ${lap + 1}` : ''} · ` +
+        `${list.length} climb${list.length === 1 ? '' : 's'}`;
     const rows = list.map(c => {
         const row = document.createElement('div');
         row.className = 'row';
@@ -608,7 +609,7 @@ function renderRouteList(pos, positionUnknown) {
         swatch.style.background = gradeColor(c.avgGrade, s.colorScheme, 1);
         const name = document.createElement('span');
         name.className = 'name';
-        name.textContent = climbTitle(c) + (multiLap ? ` (lap ${lapOf(c.start) + 1})` : '');
+        name.textContent = `${c.index + 1}. ${climbTitle(c)}` + (multiLap ? ` (lap ${lapOf(c.start) + 1})` : '');
         const badge = document.createElement('span');
         setBadge(badge, c);
         const info = document.createElement('span');
@@ -737,7 +738,7 @@ function render() {
     header.querySelector('.climb-name').textContent = climbTitle(climb);
     header.querySelector('.climb-meta').textContent =
         (previewing ? 'Preview · ' : '') +
-        `${climbNumber(climb).join('/')} · max ${toText(formatGrade(climb.maxGrade, 0))}` +
+        `${climbNumberText(climb)} · max ${toText(formatGrade(climb.maxGrade, 0))}` +
         (positionUnknown && !previewing ? ' · position unknown' : '');
     // "Starts at" (from the route start) when we can't say how far away it is
     const showAt = positionUnknown || (progress.state === 'approaching' && progress.toStart == null);

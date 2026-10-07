@@ -8,6 +8,7 @@ A [Sauce for Zwift](https://www.sauce.llc/products/sauce4zwift/) mod that finds 
 - Current grade and the average grade of what is left
 - Before a climb: distance to the start, length, ascent and average grade
 - A list of the next climbs on the route
+- Climb numbers count every climb since the start of the ride, across laps (e.g. **4/6 · lap 2** in an event, **#5 · lap 3** on a free ride)
 - A **Route climbs** list (title bar button) of every climb on the route; click any climb there or in the upcoming list to preview it
 
 ## Climb detection
