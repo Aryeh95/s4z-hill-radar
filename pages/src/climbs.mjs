@@ -315,6 +315,8 @@ function maxGradeOver(e, step, a, b, window=100) {
 
 // Official climb segments (e.g. Zwift KOM segments): a segment that is a climb
 // by the rules becomes a climb, joined with any detected climbing it overlaps.
+// Official segments don't need the 500 m minimum length (e.g. Innsbruck's Leg
+// Snapper KOM, 422 m at 6.9%), but still need the minimum grade and score.
 // Segments only ever extend a climb, never shorten it. Segments that are not
 // climbs (sprints, loops, very gentle segments) are ignored. Where qualifying
 // segments overlap each other, the longest one is used.
@@ -322,10 +324,11 @@ function applySegments(ranges, segments, profile, o) {
     const {e, step} = profile;
     const n = e.length;
     const candidates = [];
+    const segmentRules = {...o, minLength: 0};
     for (const seg of segments) {
         const a = Math.max(0, Math.round((seg.start - profile.start) / step));
         const b = Math.min(n - 1, Math.round((seg.end - profile.start) / step));
-        if (b > a && passes(e, step, a, b, o)) {
+        if (b > a && passes(e, step, a, b, segmentRules)) {
             candidates.push({a, b, seg});
         }
     }

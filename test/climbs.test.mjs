@@ -262,3 +262,20 @@ test('fallback names for unofficial climbs', () => {
     const laps = [{lapStart: 0}, {lapStart: 10000}];
     assert.equal(fallbackClimbName('Bologna Time Trial', {start: 15900, end: 17920, length: 2020}, laps), 'San Luca');
 });
+
+test('short official KOM under 500 m counts if steep enough (23rd St style)', () => {
+    // 284 m at 9.3% on flat roads
+    const {distances, elevations} = makeProfile([[2000, 0], [284, 0.093], [2000, 0]]);
+    const profile = buildProfile(distances, elevations);
+    assert.equal(detectClimbs(profile).length, 0, 'too short without a segment');
+    const seg = {name: '23RD ST.', start: 2000, end: 2284};
+    const climbs = detectClimbs(profile, {segments: [seg]});
+    assert.equal(climbs.length, 1);
+    assert.equal(climbs[0].segment.name, '23RD ST.');
+    // Still needs the score for the chosen size
+    assert.equal(detectClimbs(profile, {segments: [seg], minScore: DETECTION_SCORES.medium}).length, 0);
+    // A short gentle segment does not count
+    const flat = makeProfile([[2000, 0], [300, 0.02], [2000, 0]]);
+    const p2 = buildProfile(flat.distances, flat.elevations);
+    assert.equal(detectClimbs(p2, {segments: [{name: 'Kicker', start: 2000, end: 2300}]}).length, 0);
+});
