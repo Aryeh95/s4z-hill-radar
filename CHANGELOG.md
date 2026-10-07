@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-10-07)
+
+First release.
 
 - Climb detection on the current route or road: at least 500 m long and 3% average grade, with an All / Medium and large / Only large threshold using the climb score (length x average grade).
 - Climbs carry on through dips and short descents; long flat sections split them.

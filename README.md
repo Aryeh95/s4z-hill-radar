@@ -11,6 +11,14 @@ A [Sauce for Zwift](https://www.sauce.llc/products/sauce4zwift/) mod that finds 
 - Climb numbers count every climb since the start of the ride, across laps (e.g. **4/6 · lap 2** in an event, **#5 · lap 3** on a free ride)
 - A **Route climbs** list (title bar button) of every climb on the route; click any climb there or in the upcoming list to preview it
 
+## Screenshots
+
+| Halfway up the Epic KOM | Next climb at the start of The Uber Pretzel | Preview of a later climb |
+| --- | --- | --- |
+| ![Hill Radar on the Epic KOM](docs/screenshots/epic-kom-climbing.png) | ![Hill Radar showing the next climb](docs/screenshots/next-climb.png) | ![Hill Radar previewing Jungle CCW Climb](docs/screenshots/climb-preview.png) |
+
+Shown with Sauce's default theme. Climbing the Epic KOM: distance to the top, climbing left (including the dip near the summit), current grade and the average of what is left, with the part already climbed dimmed. At the start of a route: the next climb and the ones after it. Clicking a climb in the list previews it; the ✕ goes back to live.
+
 ## Climb detection
 
 A climb has to be at least 500 m long with an average grade of at least 3%. Each climb gets a score of length (m) x average grade (%), which sets its category:
@@ -53,8 +61,8 @@ The window can be resized; everything scales with it.
 
 ## Install
 
-1. Download this repository (Code > Download ZIP) and unzip it.
-2. Put the folder in your Sauce mods folder (usually `Documents\SauceMods`).
+1. Download the latest release from the [Releases page](https://github.com/Aryeh95/s4z-hill-radar/releases) (or a tag's **Source code (zip)** under [Tags](https://github.com/Aryeh95/s4z-hill-radar/tags)) and unzip it.
+2. Put the folder in your Sauce mods folder (usually `Documents\SauceMods`). If you had an earlier copy, replace it.
 3. Restart Sauce, enable **Hill Radar** in Sauce's mod settings, and add the **Hill Radar** window.
 
 ## Development
