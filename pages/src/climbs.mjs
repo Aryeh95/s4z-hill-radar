@@ -1,0 +1,374 @@
+// Climb detection for elevation profiles.
+//
+// Pure module (no Sauce imports) so it can be unit tested with node.
+//
+// Rules follow the climb detection used by common bike computers:
+//   - a climb is at least 500 m long with an average grade of at least 3%
+//   - climb score = length (m) x average grade (%)  (which equals net gain (m) x 100)
+//   - detection size: small >= 1500, medium >= 3500, large >= 8000
+// Climbs may contain dips/short descents; the "ascent" of a climb counts all
+// of the climbing (including re-climbing dips), not just the net gain.
+
+export const DETECTION_SCORES = {
+    small: 1500,
+    medium: 3500,
+    large: 8000,
+};
+
+export const CATEGORIES = [
+    {id: 'hc', label: 'HC', minScore: 80000},
+    {id: 'cat1', label: 'Cat 1', minScore: 64000},
+    {id: 'cat2', label: 'Cat 2', minScore: 32000},
+    {id: 'cat3', label: 'Cat 3', minScore: 16000},
+    {id: 'cat4', label: 'Cat 4', minScore: 8000},
+    {id: 'uncat', label: '', minScore: 0},
+];
+
+const DEFAULTS = {
+    minScore: DETECTION_SCORES.small,
+    minLength: 500,         // m
+    minGrade: 0.03,         // 3%
+    step: 20,               // m, resample resolution
+    smoothDistance: 100,    // m, moving average window for elevation
+    dipGap: 1000,           // m, max distance without a new high point before a climb ends
+    mergeDescent: 1500,     // m, max length of a descent between two climb parts that get merged
+    trimWindow: 100,        // m, window used to trim flat ends off a climb
+    trimGrade: 0.02,        // ends flatter than this (or half the climb's grade) are trimmed
+};
+
+
+export function climbCategory(score) {
+    return CATEGORIES.find(x => score >= x.minScore);
+}
+
+
+/**
+ * Resample a (distances, elevations) profile to a fixed step, smooth it and
+ * precompute cumulative ascent.
+ */
+export function buildProfile(distances, elevations, {step=DEFAULTS.step,
+                                                     smoothDistance=DEFAULTS.smoothDistance,
+                                                     ascentSmoothDistance=40}={}) {
+    if (!distances || distances.length < 2 || distances.length !== elevations.length) {
+        return null;
+    }
+    const start = distances[0];
+    const end = distances[distances.length - 1];
+    const n = Math.max(2, Math.floor((end - start) / step) + 1);
+    const raw = new Float64Array(n);
+    let j = 0;
+    for (let i = 0; i < n; i++) {
+        const x = start + i * step;
+        while (j < distances.length - 2 && distances[j + 1] < x) {
+            j++;
+        }
+        const d0 = distances[j];
+        const d1 = distances[j + 1];
+        let t = d1 > d0 ? (x - d0) / (d1 - d0) : 0;
+        t = Math.min(1, Math.max(0, t));
+        raw[i] = elevations[j] + (elevations[j + 1] - elevations[j]) * t;
+    }
+    // Centered moving average (shrinking window at the edges)
+    const half = Math.max(0, Math.round(smoothDistance / step / 2));
+    const prefix = new Float64Array(n + 1);
+    for (let i = 0; i < n; i++) {
+        prefix[i + 1] = prefix[i] + raw[i];
+    }
+    const e = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+        const lo = Math.max(0, i - half);
+        const hi = Math.min(n - 1, i + half);
+        e[i] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
+    }
+    // Total ascent uses lighter smoothing so the climbing out of dips is counted.
+    const ascHalf = Math.max(0, Math.round(ascentSmoothDistance / step / 2));
+    const asc = new Float64Array(n);
+    let prev;
+    for (let i = 0; i < n; i++) {
+        const lo = Math.max(0, i - ascHalf);
+        const hi = Math.min(n - 1, i + ascHalf);
+        const v = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
+        if (i) {
+            asc[i] = asc[i - 1] + Math.max(0, v - prev);
+        }
+        prev = v;
+    }
+    return {start, end, step, e, asc, length: end - start};
+}
+
+
+function interp(arr, profile, distance) {
+    const f = (distance - profile.start) / profile.step;
+    if (f <= 0) {
+        return arr[0];
+    }
+    if (f >= arr.length - 1) {
+        return arr[arr.length - 1];
+    }
+    const i = Math.floor(f);
+    return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
+}
+
+export function elevationAt(profile, distance) {
+    return interp(profile.e, profile, distance);
+}
+
+export function ascentAt(profile, distance) {
+    return interp(profile.asc, profile, distance);
+}
+
+
+function findCandidates(e, step, o) {
+    const out = [];
+    let s = 0;
+    let pk = 0;
+    for (let i = 1; i < e.length; i++) {
+        if (e[i] > e[pk]) {
+            pk = i;
+            continue;
+        }
+        if (pk === s) {
+            if (e[i] <= e[s]) {
+                s = pk = i;
+            }
+            continue;
+        }
+        const gain = e[pk] - e[s];
+        const drop = e[pk] - e[i];
+        const dropTol = Math.min(40, Math.max(10, gain * 0.25));
+        if (drop > dropTol || (i - pk) * step > o.dipGap) {
+            out.push([s, pk]);
+            let m = pk;
+            for (let k = pk; k <= i; k++) {
+                if (e[k] < e[m]) {
+                    m = k;
+                }
+            }
+            s = pk = m;
+            for (let k = m; k <= i; k++) {
+                if (e[k] > e[pk]) {
+                    pk = k;
+                }
+            }
+        }
+    }
+    if (pk > s) {
+        out.push([s, pk]);
+    }
+    return out;
+}
+
+
+// Join climb parts that are separated by a dip, as long as the climb carries on
+// higher afterwards and the dip is small compared to what was already climbed.
+function mergeDips(cands, e, step, o) {
+    let merged = true;
+    while (merged && cands.length > 1) {
+        merged = false;
+        for (let i = 0; i < cands.length - 1; i++) {
+            const [s1, p1] = cands[i];
+            const [s2, p2] = cands[i + 1];
+            const gain1 = e[p1] - e[s1];
+            const dip = e[p1] - e[s2];
+            const climbStart2 = trim(e, step, s2, p2, o)[0];
+            if (e[p2] > e[p1] &&
+                dip <= Math.max(15, gain1 * 0.5) &&
+                (climbStart2 - p1) * step <= o.mergeDescent) {
+                cands.splice(i, 2, [s1, p2]);
+                merged = true;
+                break;
+            }
+        }
+    }
+    return cands;
+}
+
+
+// Trim flat-ish ends. "Flat" is relative to the climb: an end is trimmed when it
+// is flatter than trimGrade or half of the climb's average grade.
+function trim(e, step, a, b, o) {
+    const w = Math.max(1, Math.round(o.trimWindow / step));
+    for (let pass = 0; pass < 2; pass++) {
+        const avg = b > a ? (e[b] - e[a]) / ((b - a) * step) : 0;
+        const minGrade = Math.max(o.trimGrade, avg * 0.5);
+        while (b - a > w && (e[a + w] - e[a]) / (w * step) < minGrade) {
+            a++;
+        }
+        while (b - a > w && (e[b] - e[b - w]) / (w * step) < minGrade) {
+            b--;
+        }
+    }
+    return [a, b];
+}
+
+
+function passes(e, step, a, b, o) {
+    const length = (b - a) * step;
+    if (length < o.minLength) {
+        return false;
+    }
+    const gain = e[b] - e[a];
+    const grade = gain / length;
+    return grade >= o.minGrade && gain * 100 >= o.minScore;
+}
+
+
+// Best (largest gain) sub-interval of [a, b] that qualifies as a climb.
+function bestSubInterval(e, step, a, b, o) {
+    const minPts = Math.ceil(o.minLength / step);
+    let best = null;
+    let bestGain = o.minScore / 100;
+    for (let i = a; i <= b - minPts; i++) {
+        for (let j = i + minPts; j <= b; j++) {
+            const gain = e[j] - e[i];
+            if (gain >= bestGain && gain / ((j - i) * step) >= o.minGrade) {
+                if (gain > bestGain || !best || (j - i) < (best[1] - best[0])) {
+                    best = [i, j];
+                    bestGain = gain;
+                }
+            }
+        }
+    }
+    return best;
+}
+
+
+function extract(e, step, a, b, o, out, depth=0) {
+    if ((b - a) * step < o.minLength || depth > 20) {
+        return;
+    }
+    const [ta, tb] = trim(e, step, a, b, o);
+    if (passes(e, step, ta, tb, o)) {
+        out.push([ta, tb]);
+        return;
+    }
+    const best = bestSubInterval(e, step, a, b, o);
+    if (!best) {
+        return;
+    }
+    const [i, j] = trim(e, step, best[0], best[1], o);
+    extract(e, step, a, best[0], o, out, depth + 1);
+    if (passes(e, step, i, j, o)) {
+        out.push([i, j]);
+    }
+    extract(e, step, best[1], b, o, out, depth + 1);
+}
+
+
+function maxGradeOver(e, step, a, b, window=100) {
+    const w = Math.max(1, Math.round(window / step));
+    if (b - a <= w) {
+        return (e[b] - e[a]) / ((b - a) * step || 1);
+    }
+    let max = -Infinity;
+    for (let i = a; i + w <= b; i++) {
+        max = Math.max(max, (e[i + w] - e[i]) / (w * step));
+    }
+    return max;
+}
+
+
+/**
+ * Detect climbs in a profile made by buildProfile().
+ * Returns climbs sorted by start distance.
+ */
+export function detectClimbs(profile, options={}) {
+    if (!profile) {
+        return [];
+    }
+    const o = {...DEFAULTS, ...options};
+    const {e, step} = profile;
+    const cands = mergeDips(findCandidates(e, step, o), e, step, o);
+    const ranges = [];
+    for (const [a, b] of cands) {
+        extract(e, step, a, b, o, ranges);
+    }
+    ranges.sort((x, y) => x[0] - y[0]);
+    return ranges.map(([a, b], index) => {
+        const length = (b - a) * step;
+        const gain = e[b] - e[a];
+        const avgGrade = gain / length;
+        const score = length * avgGrade * 100;
+        return {
+            index,
+            start: profile.start + a * step,
+            end: profile.start + b * step,
+            length,
+            gain,
+            ascent: profile.asc[b] - profile.asc[a],
+            avgGrade,
+            maxGrade: maxGradeOver(e, step, a, b),
+            score,
+            category: climbCategory(score),
+            startElevation: e[a],
+            endElevation: e[b],
+        };
+    });
+}
+
+
+/**
+ * Live numbers for a rider at `distance` relative to a climb.
+ */
+export function riderProgress(profile, climb, distance) {
+    if (distance < climb.start) {
+        return {
+            state: 'approaching',
+            toStart: climb.start - distance,
+            remaining: climb.length,
+            remainingAscent: climb.ascent,
+            remainingGain: climb.gain,
+            remainingGrade: climb.avgGrade,
+            done: 0,
+        };
+    }
+    const d = Math.min(distance, climb.end);
+    const remaining = climb.end - d;
+    const remainingGain = climb.endElevation - elevationAt(profile, d);
+    return {
+        state: 'climbing',
+        toStart: 0,
+        remaining,
+        remainingAscent: Math.max(0, ascentAt(profile, climb.end) - ascentAt(profile, d)),
+        remainingGain,
+        remainingGrade: remaining > 0 ? remainingGain / remaining : 0,
+        done: (d - climb.start) / climb.length,
+    };
+}
+
+
+/**
+ * The climb being ridden at `distance`, or else the next one ahead.
+ */
+export function currentOrNextClimb(climbs, distance) {
+    return climbs.find(x => distance <= x.end) || null;
+}
+
+
+export function autoChunkLength(climbLength) {
+    if (climbLength <= 1500) {
+        return 100;
+    } else if (climbLength <= 4000) {
+        return 250;
+    } else if (climbLength <= 10000) {
+        return 500;
+    }
+    return 1000;
+}
+
+
+/**
+ * Split a climb into roughly equal pieces about `chunkLength` long, each with its grade.
+ */
+export function climbChunks(profile, climb, chunkLength) {
+    const count = Math.max(1, Math.round(climb.length / chunkLength));
+    const size = climb.length / count;
+    const chunks = [];
+    for (let i = 0; i < count; i++) {
+        const start = climb.start + i * size;
+        const end = i === count - 1 ? climb.end : start + size;
+        const grade = (elevationAt(profile, end) - elevationAt(profile, start)) / (end - start);
+        chunks.push({start, end, grade});
+    }
+    return chunks;
+}

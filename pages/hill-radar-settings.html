@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" class="settings-page" tabindex="0" data-settings-key="hill-radar-settings-v1">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+        <meta name="apple-mobile-web-app-capable" content="yes"/>
+        <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';"/>
+
+        <title>Hill Radar - Settings</title>
+
+        <link id="favicon" rel="shortcut icon" href="/pages/images/favicon.png"/>
+        <link rel="stylesheet" href="/pages/css/common.css"/>
+        <link rel="stylesheet" href="./css/hill-radar.css"/>
+
+        <script type="module">
+            import {settingsMain} from './src/hill-radar.mjs';
+            settingsMain();
+        </script>
+    </head>
+    <body>
+        <div id="titlebar">
+            <header>
+                <div class="logo"><img src="/pages/images/icon128.png"/></div>
+                <div class="title">Hill Radar - Settings</div>
+                <div class="filler"></div>
+                <div class="buttons">
+                    <div title="Close this window" class="button close electron-only"><ms>close</ms></div>
+                </div>
+            </header>
+        </div>
+        <div id="settings">
+            <form id="options" class="section">
+                <div class="title">Climbs</div>
+                <label title="Smallest climbs to detect. Climb score = length (m) x average grade (%). Climbs must be at least 500 m long and average at least 3%.">
+                    <key>Climb detection:</key>
+                    <select name="detection">
+                        <option value="small">All climbs (small and up, score 1,500+)</option>
+                        <option value="medium">Medium and large climbs (score 3,500+)</option>
+                        <option value="large">Only large climbs (score 8,000+)</option>
+                    </select>
+                </label>
+                <label title="Show the next climb only when it is this close (km or mi, matching your units). 0 always shows the next climb.">
+                    <key>Show next climb within:</key>
+                    <input type="number" name="approachDistance" min="0" max="100" step="0.5" style="--size: 6"/>
+                </label>
+                <label title="Hide the climb display when there is no climb to show">
+                    <key>Hide when no climb:</key>
+                    <input type="checkbox" name="hideWhenIdle"/>
+                </label>
+                <label title="Number of later climbs listed under the profile">
+                    <key>Upcoming climbs list:</key>
+                    <input type="range" name="upcomingCount" min="0" max="5" step="1"/>
+                    <input type="number" name="upcomingCount" min="0" max="5" step="1" style="--size: 4"/>
+                </label>
+
+                <div class="title">Units</div>
+                <label title="Auto follows the Units setting in Sauce's main settings">
+                    <key>Units:</key>
+                    <select name="units">
+                        <option value="auto">Auto (Sauce setting)</option>
+                        <option value="metric">Metric</option>
+                        <option value="imperial">Imperial</option>
+                    </select>
+                </label>
+
+                <div class="title">Profile</div>
+                <label>
+                    <key>Gradient color scheme:</key>
+                    <select name="colorScheme">
+                        <option value="classic">Classic (green to dark red)</option>
+                        <option value="sauce">Sauce</option>
+                        <option value="vv">Veloviewer (ish)</option>
+                        <option value="cvdBuRd">CVD-BuRd</option>
+                        <option value="cvdPRGn">CVD-PRGn</option>
+                        <option value="cvdSunset">CVD-Sunset</option>
+                    </select>
+                </label>
+                <label>
+                    <key>Gradient color opacity:</key>
+                    <input type="range" name="gradientOpacity" min="0.1" max="1" step="0.05"/>
+                    <input type="number" name="gradientOpacity" min="0.1" max="1" step="0.05" style="--size: 5"/>
+                </label>
+                <label title="Length of each colored section of the climb">
+                    <key>Section length:</key>
+                    <select name="chunkLength">
+                        <option value="auto">Auto</option>
+                        <option value="100">100 m</option>
+                        <option value="250">250 m</option>
+                        <option value="500">500 m</option>
+                        <option value="1000">1 km</option>
+                    </select>
+                </label>
+                <label>
+                    <key>Show grade on sections:</key>
+                    <input type="checkbox" name="showGradeLabels"/>
+                </label>
+                <label title="Dim the part of the climb already ridden">
+                    <key>Dim completed part:</key>
+                    <input type="checkbox" name="dimCompleted"/>
+                </label>
+
+                <div class="title">Window</div>
+                <label>
+                    <key>Font scaling:</key>
+                    <input type="range" name="fontScale" min="0.5" max="2" step="0.05"/>
+                    <input type="number" name="fontScale" min="0.5" max="2" step="0.05" style="--size: 5"/>
+                </label>
+                <label>
+                    <key>Theme override:</key>
+                    <select is="sauce-theme" override></select>
+                </label>
+                <label title="Mostly useful for streamers using OBS window and browser sources">
+                    <key>Solid background:</key>
+                    <input type="checkbox" name="solidBackground"/>
+                </label>
+                <label>
+                    <key>Background color:</key>
+                    <input type="color" name="backgroundColor" data-depends-on="solidBackground"/>
+                    <input type="text" name="backgroundColor" data-depends-on="solidBackground" size="7"/>
+                </label>
+                <label title="Opacity of the panel behind the climb data">
+                    <key>Data background opacity:</key>
+                    <input type="range" name="dataTransparency" min="0" max="1" step="0.05"/>
+                    <input type="number" name="dataTransparency" min="0" max="1" step="0.05" style="--size: 5"/>
+                </label>
+            </form>
+            <form class="section">
+                <div class="title">Route data export</div>
+                <p class="note">Saves the elevation profile of every route Sauce knows about to a JSON file.
+                   Useful for testing and tuning climb detection.</p>
+                <label>
+                    <key>Export all routes:</key>
+                    <button type="button" id="export-routes">Export</button>
+                    <span class="export-status"></span>
+                </label>
+            </form>
+        </div>
+    </body>
+</html>

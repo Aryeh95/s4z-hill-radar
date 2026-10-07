@@ -1,0 +1,26 @@
+{
+    "manifest_version": 1,
+    "name": "Hill Radar",
+    "description": "Detects climbs on your route and shows a gradient-colored profile of the climb with the distance and elevation left to the top",
+    "author": "Aryeh Nirenberg",
+    "website_url": "https://github.com/Aryeh95/s4z-hill-radar",
+    "version": "0.1.0",
+    "content_css": [],
+    "web_root": "pages",
+    "windows": [
+        {
+            "file": "pages/hill-radar.html",
+            "id": "hill-radar",
+            "name": "Hill Radar",
+            "description": "Climb detection with a gradient-colored profile, remaining distance and remaining elevation",
+            "overlay": true,
+            "frame": false,
+            "default_bounds": {
+                "width": 380,
+                "height": 300,
+                "x": -400,
+                "y": 100
+            }
+        }
+    ]
+}
