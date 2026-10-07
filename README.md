@@ -61,11 +61,17 @@ The window can be resized; everything scales with it.
 
 ## Install
 
+**From the Sauce mod store** (once listed): open Sauce's mod settings, find **Hill Radar** and install it.
+
+**Manually:**
+
 1. Download the latest release from the [Releases page](https://github.com/Aryeh95/s4z-hill-radar/releases) (or a tag's **Source code (zip)** under [Tags](https://github.com/Aryeh95/s4z-hill-radar/tags)) and unzip it.
 2. Put the folder in your Sauce mods folder (usually `Documents\SauceMods`). If you had an earlier copy, replace it.
 3. Restart Sauce, enable **Hill Radar** in Sauce's mod settings, and add the **Hill Radar** window.
 
 ## Development
+
+`npm run zip` builds the release zip (`dist/hill-radar-<version>.zip`, a single `hill-radar/` folder with only the files Sauce needs), as used for the Sauce mod store.
 
 The climb detection, colors and unit formatting are plain JavaScript modules in `pages/src/` with tests:
 

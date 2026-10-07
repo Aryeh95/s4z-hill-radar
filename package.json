@@ -1,11 +1,12 @@
 {
     "name": "s4z-hill-radar",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "private": true,
     "description": "Hill Radar mod for Sauce for Zwift",
     "license": "GPL-3.0-only",
     "type": "module",
     "scripts": {
-        "test": "node --test test/*.test.mjs"
+        "test": "node --test test/*.test.mjs",
+        "zip": "sh scripts/build-zip.sh"
     }
 }

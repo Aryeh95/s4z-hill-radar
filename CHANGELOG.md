@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 (2026-10-07)
+
+- Fixed mod ID (`hill-radar`), so settings and window positions are kept when updating, whatever the folder is called.
+- Logo for the Sauce mod store.
+
 ## 0.1.0 (2026-10-07)
 
 First release.
