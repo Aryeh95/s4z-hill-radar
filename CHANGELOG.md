@@ -2,6 +2,9 @@
 
 ## 0.1.0 (unreleased)
 
+- High resolution gradient coloring: the profile is colored point by point by its grade (new "Gradient coloring" setting; "Sections" keeps the old look).
+- Classic color scheme now blends smoothly from green through yellow, orange and red to dark red instead of fixed bands.
+- Official climb segments only extend a climb, never shorten it (e.g. Ventoux on Ven-Top keeps its full length).
 - Official Zwift climb segments (KOMs) on the route now set the climb's exact start, end and name.
 - Long flat sections inside a climb split it into separate climbs; dips still keep a climb together.
 - Detection tuned and checked against the elevation profiles of all 352 Zwift routes.

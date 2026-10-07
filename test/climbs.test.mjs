@@ -229,12 +229,14 @@ test('segments that are not climbs are ignored', () => {
     assert.equal(climbs[0].segment, null);
 });
 
-test('detected climb partly outside a segment keeps its outside part if still a climb', () => {
+test('a segment only extends a climb, never shortens it', () => {
     // 2 km @ 6% then 1.5 km @ 6%; segment only covers the second part
     const {distances, elevations} = makeProfile([[500, 0], [2000, 0.06], [1500, 0.06], [500, 0]]);
     const profile = buildProfile(distances, elevations);
+    const plain = detectClimbs(profile);
     const climbs = detectClimbs(profile, {segments: [{name: 'Top KOM', start: 2500, end: 4000}]});
-    assert.equal(climbs.length, 2);
-    assert.equal(climbs[1].segment.name, 'Top KOM');
-    assert.ok(climbs[0].end <= 2500);
+    assert.equal(climbs.length, 1);
+    assert.equal(climbs[0].segment.name, 'Top KOM');
+    assert.equal(climbs[0].start, plain[0].start);
+    assert.ok(climbs[0].end >= 4000);
 });

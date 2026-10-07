@@ -75,12 +75,19 @@
                         <option value="cvdSunset">CVD-Sunset</option>
                     </select>
                 </label>
+                <label title="Smooth colors every point by its grade; Sections colors each section by its average grade">
+                    <key>Gradient coloring:</key>
+                    <select name="colorMode">
+                        <option value="smooth">Smooth (high resolution)</option>
+                        <option value="sections">Sections</option>
+                    </select>
+                </label>
                 <label>
                     <key>Gradient color opacity:</key>
                     <input type="range" name="gradientOpacity" min="0.1" max="1" step="0.05"/>
                     <input type="number" name="gradientOpacity" min="0.1" max="1" step="0.05" style="--size: 5"/>
                 </label>
-                <label title="Length of each colored section of the climb">
+                <label title="Length of each section for grade labels (and colors in Sections mode)">
                     <key>Section length:</key>
                     <select name="chunkLength">
                         <option value="auto">Auto</option>

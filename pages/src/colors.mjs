@@ -40,14 +40,32 @@ function rgbToHsl(r, g, b) {
     return {h: h * 60, s, l};
 }
 
-const classicBands = [
-    {max: 0, h: 210, s: 0.15, l: 0.55},       // descent / flat
-    {max: 0.03, h: 120, s: 0.6, l: 0.4},      // < 3%  green
-    {max: 0.06, h: 52, s: 0.95, l: 0.5},      // 3-6%  yellow
-    {max: 0.09, h: 30, s: 0.95, l: 0.5},      // 6-9%  orange
-    {max: 0.12, h: 0, s: 0.85, l: 0.5},       // 9-12% red
-    {max: Infinity, h: 345, s: 0.85, l: 0.28} // 12%+  dark red
+// Classic: blends from green (flat) through yellow (~4.5%), orange (~7.5%),
+// red (~10.5%) to dark red (14%+). Descents are blue-grey.
+const classicStops = [
+    [-0.06, 210, 0.3, 0.5],
+    [-0.005, 200, 0.15, 0.55],
+    [0.0, 125, 0.55, 0.4],
+    [0.025, 95, 0.65, 0.42],
+    [0.045, 52, 0.95, 0.5],
+    [0.075, 30, 0.95, 0.5],
+    [0.105, 0, 0.85, 0.48],
+    [0.14, -15, 0.85, 0.28],
 ];
+
+function classicColor(grade) {
+    const st = classicStops;
+    const g = Math.min(st[st.length - 1][0], Math.max(st[0][0], grade));
+    let i = 0;
+    while (i < st.length - 2 && g >= st[i + 1][0]) {
+        i++;
+    }
+    const lo = st[i];
+    const hi = st[i + 1];
+    const f = (g - lo[0]) / (hi[0] - lo[0]);
+    const mix = k => lo[k] + (hi[k] - lo[k]) * f;
+    return {h: mix(1), s: mix(2), l: mix(3)};
+}
 
 const vvRanges = [
     {min: -1, max: -0.17, hMin: 250, hMax: 250, s: 1, l: 0.5},
@@ -114,6 +132,6 @@ export function gradeColor(grade, scheme='classic', alpha=1) {
         const c = interpolateRanges(grade, cvdRanges[scheme]);
         return hsl(c.h, c.s, c.l, alpha);
     }
-    const b = classicBands.find(x => grade < x.max) || classicBands[classicBands.length - 1];
-    return hsl(b.h, b.s, b.l, alpha);
+    const c = classicColor(grade);
+    return hsl(c.h, c.s, c.l, alpha);
 }

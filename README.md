@@ -32,7 +32,7 @@ Climbs continue through dips and short descents, so a climb with a dip in the mi
 
 Detection works on routes and events (including multi-lap and distance-based events). When riding without a route, it uses the current road only.
 
-When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and its exact official start and end. The segment still has to meet the climb rules above (500 m, 3%, and the detection size), so sprints, laps and very gentle segments are not shown as climbs. Climbs without an official segment are found from the elevation profile.
+When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to meet the climb rules above (500 m, 3%, and the detection size), so sprints, laps and very gentle segments are not shown as climbs. Climbs without an official segment are found from the elevation profile.
 
 ## Settings
 
@@ -42,6 +42,7 @@ When the route has an official Zwift climb segment (a KOM), that climb uses the 
 - Upcoming climbs list (0 to 5)
 - Units: Auto (follows Sauce), Metric or Imperial
 - Gradient color scheme: Classic, Sauce, Veloviewer (ish), CVD-BuRd, CVD-PRGn, CVD-Sunset
+- Gradient coloring: Smooth (high resolution, colored point by point) or Sections
 - Gradient color opacity, section length, grade labels, dim the completed part
 - Font scaling, theme override, solid background, data background opacity
 

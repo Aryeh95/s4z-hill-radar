@@ -1,6 +1,6 @@
 import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
-        autoChunkLength, elevationAt, DETECTION_SCORES} from './climbs.mjs';
+        autoChunkLength, elevationAt, gradeAt, DETECTION_SCORES} from './climbs.mjs';
 import {gradeColor} from './colors.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText} from './units.mjs';
 
@@ -15,6 +15,7 @@ common.settingsStore.setDefault({
     hideWhenIdle: false,
     upcomingCount: 2,
     colorScheme: 'classic',
+    colorMode: 'smooth',
     gradientOpacity: 0.9,
     chunkLength: 'auto',
     showGradeLabels: true,
@@ -338,17 +339,35 @@ function renderProfile(climb, pos, progress) {
     const chunkLen = s.chunkLength === 'auto' ? autoChunkLength(climb.length) : Number(s.chunkLength) || 250;
     const chunks = climbChunks(profile, climb, chunkLen);
     const opacity = Number(s.gradientOpacity) || 0.9;
-    for (const c of chunks) {
-        const pts = points.filter(([d]) => d > c.start && d < c.end);
-        pts.unshift([c.start, elevationAt(profile, c.start)]);
-        pts.push([c.end, elevationAt(profile, c.end)]);
-        const poly = pts.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
-        poly.push(`${x(c.end).toFixed(1)},${bottom}`, `${x(c.start).toFixed(1)},${bottom}`);
-        svgEl('polygon', {points: poly.join(' '), fill: gradeColor(c.grade, s.colorScheme, opacity)}, svg);
-    }
-    for (const c of chunks.slice(1)) {
-        svgEl('line', {class: 'chunk-sep', x1: x(c.start), x2: x(c.start),
-                       y1: y(elevationAt(profile, c.start)), y2: bottom}, svg);
+    if (s.colorMode === 'sections') {
+        for (const c of chunks) {
+            const pts = points.filter(([d]) => d > c.start && d < c.end);
+            pts.unshift([c.start, elevationAt(profile, c.start)]);
+            pts.push([c.end, elevationAt(profile, c.end)]);
+            const poly = pts.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
+            poly.push(`${x(c.end).toFixed(1)},${bottom}`, `${x(c.start).toFixed(1)},${bottom}`);
+            svgEl('polygon', {points: poly.join(' '), fill: gradeColor(c.grade, s.colorScheme, opacity)}, svg);
+        }
+        for (const c of chunks.slice(1)) {
+            svgEl('line', {class: 'chunk-sep', x1: x(c.start), x2: x(c.start),
+                           y1: y(elevationAt(profile, c.start)), y2: bottom}, svg);
+        }
+    } else {
+        // High resolution: a color stop every couple of pixels from the detailed grade.
+        const defs = svgEl('defs', {}, svg);
+        const gradId = 'hr-grade-fill';
+        const grad = svgEl('linearGradient', {id: gradId, gradientUnits: 'userSpaceOnUse',
+                                              x1: 0, y1: 0, x2: width, y2: 0}, defs);
+        const stops = Math.max(2, Math.min(600, Math.round(width / 2)));
+        const gradeWindow = Math.max(40, climb.length / stops * 2);
+        for (let i = 0; i <= stops; i++) {
+            const d = climb.start + climb.length * i / stops;
+            svgEl('stop', {offset: (i / stops).toFixed(4),
+                           'stop-color': gradeColor(gradeAt(profile, d, gradeWindow), s.colorScheme, 1)}, grad);
+        }
+        const poly = points.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
+        poly.push(`${width},${bottom}`, `0,${bottom}`);
+        svgEl('polygon', {points: poly.join(' '), fill: `url(#${gradId})`, 'fill-opacity': opacity}, svg);
     }
     svgEl('polyline', {
         class: 'outline',

@@ -86,18 +86,17 @@ export function buildProfile(distances, elevations, {step=DEFAULTS.step,
     }
     // Total ascent uses lighter smoothing so the climbing out of dips is counted.
     const ascHalf = Math.max(0, Math.round(ascentSmoothDistance / step / 2));
+    const fine = new Float64Array(n);
     const asc = new Float64Array(n);
-    let prev;
     for (let i = 0; i < n; i++) {
         const lo = Math.max(0, i - ascHalf);
         const hi = Math.min(n - 1, i + ascHalf);
-        const v = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
+        fine[i] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
         if (i) {
-            asc[i] = asc[i - 1] + Math.max(0, v - prev);
+            asc[i] = asc[i - 1] + Math.max(0, fine[i] - fine[i - 1]);
         }
-        prev = v;
     }
-    return {start, end, step, e, asc, length: end - start};
+    return {start, end, step, e, fine, asc, length: end - start};
 }
 
 
@@ -119,6 +118,12 @@ export function elevationAt(profile, distance) {
 
 export function ascentAt(profile, distance) {
     return interp(profile.asc, profile, distance);
+}
+
+// Detailed grade around `distance` (lightly smoothed), for coloring the profile.
+export function gradeAt(profile, distance, window=40) {
+    const h = window / 2;
+    return (interp(profile.fine, profile, distance + h) - interp(profile.fine, profile, distance - h)) / window;
 }
 
 
@@ -308,9 +313,9 @@ function maxGradeOver(e, step, a, b, window=100) {
 }
 
 
-// Official climb segments (e.g. Zwift KOM segments) define their climb exactly:
-// a segment that is a climb by the rules becomes a climb with the segment's
-// start and end, replacing detected climbs it overlaps. Segments that are not
+// Official climb segments (e.g. Zwift KOM segments): a segment that is a climb
+// by the rules becomes a climb, joined with any detected climbing it overlaps.
+// Segments only ever extend a climb, never shorten it. Segments that are not
 // climbs (sprints, loops, very gentle segments) are ignored. Where qualifying
 // segments overlap each other, the longest one is used.
 function applySegments(ranges, segments, profile, o) {
@@ -331,26 +336,17 @@ function applySegments(ranges, segments, profile, o) {
             accepted.push(c);
         }
     }
-    for (const {a, b} of accepted) {
-        ranges = ranges.flatMap(r => {
-            const overlap = Math.min(r[1], b) - Math.max(r[0], a);
-            if (overlap <= 0) {
-                return [r];
-            } else if (overlap >= (r[1] - r[0]) * 0.5) {
-                return [];  // mostly the same climb
-            }
-            // Keep the part outside the segment if it is still a climb
-            const parts = [];
-            if (r[0] < a) {
-                parts.push(trim(e, step, r[0], a, o));
-            }
-            if (r[1] > b) {
-                parts.push(trim(e, step, b, r[1], o));
-            }
-            return parts.filter(([x, y]) => passes(e, step, x, y, o));
-        });
+    for (const {a, b, seg} of accepted) {
+        const touching = ranges.filter(r => Math.min(r[1], b) - Math.max(r[0], a) > 0);
+        const keepSeg = touching.find(r => r[2]);
+        ranges = ranges.filter(r => !touching.includes(r));
+        ranges.push([
+            Math.min(a, ...touching.map(r => r[0])),
+            Math.max(b, ...touching.map(r => r[1])),
+            keepSeg ? keepSeg[2] : seg,
+        ]);
     }
-    return ranges.concat(accepted.map(x => [x.a, x.b, x.seg]));
+    return ranges;
 }
 
 
