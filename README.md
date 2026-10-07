@@ -32,7 +32,7 @@ Climbs continue through dips and short descents, so a climb with a dip in the mi
 
 Detection works on routes and events (including multi-lap and distance-based events). When riding without a route, it uses the current road only.
 
-When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to meet the climb rules above (500 m, 3%, and the detection size), so sprints, laps and very gentle segments are not shown as climbs. Climbs without an official segment are found from the elevation profile.
+When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to meet the climb rules above (500 m, 3%, and the detection size), so sprints, laps and very gentle segments are not shown as climbs. Climbs without an official segment are found from the elevation profile. When one of those matches a well-known unofficial climb (for example San Luca on the Bologna Time Trial, or the climbs named in Brian Mudge's S4Z mods), it gets that name; otherwise it is shown as "Climb 1", "Climb 2" and so on.
 
 ## Settings
 
@@ -67,6 +67,7 @@ The settings page has an **Export all routes** button that saves every route's e
 ## Credits
 
 Gradient color schemes follow those in [Zenmaster's S4Z mods](https://github.com/Zenmaster28/Zenmaster-s4z-mods).
+Names for unofficial climbs come mostly from Brian Mudge's S4Z mods (GPL-3.0).
 Climb scoring follows the common climb score used by bike computers.
 
 ## License

@@ -2,6 +2,7 @@ import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
         autoChunkLength, elevationAt, gradeAt, DETECTION_SCORES} from './climbs.mjs';
 import {gradeColor} from './colors.mjs';
+import {fallbackClimbName} from './names.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText} from './units.mjs';
 
 const doc = document.documentElement;
@@ -235,6 +236,9 @@ function nameClimbs() {
             }
         }
         c.name = best ? best.name : null;
+        if (!c.name && course.mode === 'route') {
+            c.name = fallbackClimbName(course.name, c, course.laps);
+        }
     }
 }
 

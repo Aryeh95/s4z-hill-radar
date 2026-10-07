@@ -2,6 +2,7 @@
 
 ## 0.1.0 (unreleased)
 
+- Climbs without an official Zwift segment are named from a list of well-known unofficial climbs (from Brian Mudge's S4Z mods, plus San Luca on the Bologna Time Trial).
 - High resolution gradient coloring: the profile is colored point by point by its grade (new "Gradient coloring" setting; "Sections" keeps the old look).
 - Classic color scheme now blends smoothly from green through yellow, orange and red to dark red instead of fixed bands.
 - Official climb segments only extend a climb, never shorten it (e.g. Ventoux on Ven-Top keeps its full length).

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
         autoChunkLength, DETECTION_SCORES} from '../pages/src/climbs.mjs';
 import {gradeColor, SCHEMES} from '../pages/src/colors.mjs';
+import {routeKey, fallbackClimbName} from '../pages/src/names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
 
 
@@ -239,4 +240,25 @@ test('a segment only extends a climb, never shortens it', () => {
     assert.equal(climbs[0].segment.name, 'Top KOM');
     assert.equal(climbs[0].start, plain[0].start);
     assert.ok(climbs[0].end >= 4000);
+});
+
+test('route names match despite small differences', () => {
+    assert.equal(routeKey('2022 gran fondo'), routeKey('Zwift Gran Fondo 2022'));
+    assert.equal(routeKey('2015 uci worlds course'), routeKey('2015 Worlds Course'));
+    assert.equal(routeKey('braekfast crits and grits'), routeKey('BRAEk-fast Crits and Grits'));
+    assert.equal(routeKey('yorkshire double loops'), routeKey('Yorkshire Double Loop'));
+    assert.notEqual(routeKey('Gran Fondo'), routeKey('Gran Fondo 2022'));
+});
+
+test('fallback names for unofficial climbs', () => {
+    // San Luca on the Bologna Time Trial
+    assert.equal(fallbackClimbName('Bologna Time Trial', {start: 5900, end: 7920, length: 2020}), 'San Luca');
+    // Brian Mudge's Governor St Climb at 15.3 km on the 2015 Worlds Course
+    assert.equal(fallbackClimbName('2015 Worlds Course', {start: 15250, end: 15900, length: 650}), 'Governor St Climb');
+    // Wrong place or unknown route: no name
+    assert.equal(fallbackClimbName('Bologna Time Trial', {start: 1000, end: 2000, length: 1000}), null);
+    assert.equal(fallbackClimbName('No Such Route', {start: 5900, end: 7920, length: 2020}), null);
+    // Repeats on later laps
+    const laps = [{lapStart: 0}, {lapStart: 10000}];
+    assert.equal(fallbackClimbName('Bologna Time Trial', {start: 15900, end: 17920, length: 2020}, laps), 'San Luca');
 });
