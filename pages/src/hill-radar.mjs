@@ -51,11 +51,23 @@ function neededLaps(route, state) {
     return route?.supportedLaps ? Math.max(2, (state.laps || 0) + 2) : 1;
 }
 
+// Zwift/Sauce sometimes drop the routeId for a moment (e.g. when Sauce can't place
+// the rider on the route), so keep using the last route for a while.
+let lastRoute = null;
+const routeMemoryMs = 120000;
+
 function courseKey(state) {
     if (state.eventSubgroupId) {
         return `event:${state.eventSubgroupId}`;
-    } else if (state.routeId) {
-        return `route:${state.routeId}:${Math.max(2, (state.laps || 0) + 2)}`;
+    }
+    let routeId = state.routeId;
+    if (routeId) {
+        lastRoute = {routeId, seen: Date.now()};
+    } else if (lastRoute && Date.now() - lastRoute.seen < routeMemoryMs) {
+        routeId = lastRoute.routeId;
+    }
+    if (routeId) {
+        return `route:${routeId}:${Math.max(2, (state.laps || 0) + 2)}`;
     } else if (state.roadId != null) {
         return `road:${state.courseId}:${state.roadId}:${!!state.reverse}`;
     }
@@ -80,7 +92,7 @@ async function getSegmentNames(ids) {
 }
 
 async function buildRouteCourse(state, key) {
-    let routeId = state.routeId;
+    let routeId = state.routeId || (lastRoute && lastRoute.routeId);
     let laps = null;
     let distance = null;
     if (state.eventSubgroupId) {
@@ -162,7 +174,9 @@ async function buildRouteCourse(state, key) {
             }
         }
     }
-    return {key, mode: 'route', name: route.name, distances, elevations, laps: lapList, segments};
+    const sections = (route.sections || []).filter(x => x.roadCurvePath && !x.weld);
+    return {key, mode: 'route', routeId, name: route.name, distances, elevations, laps: lapList, segments,
+            sections, lapLength: lapDistances[lapDistances.length - 1]};
 }
 
 async function buildRoadCourse(state, key) {
@@ -190,18 +204,76 @@ async function buildCourse(state, key) {
     return await buildRouteCourse(state, key);
 }
 
+let lastPosition = null;  // {pos, time}
+
+// Rider's distance along a route section, like Sauce does it, or undefined.
+function sectionDistance(section, state) {
+    if (section.roadId !== state.roadId || !section.reverse !== !state.reverse) {
+        return;
+    }
+    const p = (state.roadTime - 5000) / 1e6;
+    if (!(p - section.start > -2e-3 && section.end - p > -2e-3)) {
+        return;
+    }
+    const rcp = section.roadCurvePath;
+    if (typeof rcp.distanceAtRoadPercent !== 'function') {
+        return;
+    }
+    const clamped = Math.min(section.end, Math.max(section.start, p));
+    const d = rcp.distanceAtRoadPercent(clamped) / 100;
+    return section.reverse ? section.distance - d : d;
+}
+
+function routePosition(state) {
+    const lapIdx = Math.min(state.laps || 0, course.laps.length - 1);
+    const lap = course.laps[lapIdx];
+    // 1. Sauce's own route distance
+    if (state.routeDistance != null && state.routeEnd != null &&
+        (!state.routeId || state.routeId === course.routeId)) {
+        // The lap finish line is fixed, so use the distance left in the lap.
+        return lap.offset + lap.distance - (state.routeEnd - state.routeDistance);
+    }
+    // 2. Estimate from the game's lap progress (0-1)
+    let estimate;
+    if (Number.isFinite(state.progress) && state.progress > 0) {
+        estimate = lapIdx === 0 ?
+            state.progress * lap.distance :
+            lap.lapStart + state.progress * course.lapLength;
+    }
+    // 3. Find the rider's road section on the route (may match more than once)
+    const candidates = [];
+    for (const section of course.sections) {
+        if (section.leadin && lapIdx > 0) {
+            continue;
+        }
+        const d = sectionDistance(section, state);
+        if (d != null && Number.isFinite(d)) {
+            candidates.push((section.leadin ? 0 : lap.lapStart) + section.blockOffsetDistance + d);
+        }
+    }
+    if (candidates.length) {
+        const recent = lastPosition && Date.now() - lastPosition.time < 30000 ? lastPosition.pos : null;
+        const ref = recent ?? estimate;
+        if (ref == null) {
+            return candidates[0];
+        }
+        return candidates.reduce((a, b) => Math.abs(b - ref) < Math.abs(a - ref) ? b : a);
+    }
+    return estimate ?? null;
+}
+
 // Distance along the course for the watched rider.
 function coursePosition(state) {
     if (!course) {
         return null;
     }
     if (course.mode === 'route') {
-        if (state.routeDistance == null || state.routeEnd == null) {
-            return null;
+        const pos = routePosition(state);
+        if (pos != null && Number.isFinite(pos)) {
+            lastPosition = {pos, time: Date.now()};
+            return pos;
         }
-        // The lap finish line is fixed, so use the distance left in the lap.
-        const lap = course.laps[state.laps || 0] || course.laps[course.laps.length - 1];
-        return lap.offset + lap.distance - (state.routeEnd - state.routeDistance);
+        return null;
     }
     // Road mode (no route): same approach as Sauce's own elevation profile.
     if (state.roadId !== course.road.id || !!state.reverse !== course.reverse ||
@@ -313,7 +385,7 @@ function svgEl(tag, attrs, parent) {
     return el;
 }
 
-function renderProfile(climb, pos, progress) {
+function renderProfile(climb, pos, progress, positionUnknown) {
     const svg = document.querySelector('.profile svg');
     const box = svg.parentElement.getBoundingClientRect();
     const width = Math.max(10, box.width);
@@ -402,11 +474,13 @@ function renderProfile(climb, pos, progress) {
         svgEl('circle', {class: 'rider-dot', cx: px, cy: py, r: Math.max(3, labelSize * 0.4)}, svg);
     } else {
         const t = svgEl('text', {class: 'base-label', x: 2, y: labelSize, 'font-size': labelSize * 0.9}, svg);
-        t.textContent = `▶ ${toText(formatDistance(progress.toStart, imperial))}`;
+        t.textContent = positionUnknown ?
+            `at ${toText(formatDistance(climb.start, imperial))}` :
+            `▶ ${toText(formatDistance(progress.toStart, imperial))}`;
     }
 }
 
-function renderUpcoming(list) {
+function renderUpcoming(list, positionUnknown) {
     const el = document.querySelector('.upcoming');
     const imperial = isImperial();
     const s = settings();
@@ -422,7 +496,7 @@ function renderUpcoming(list) {
         const badge = document.createElement('span');
         setBadge(badge, c);
         const info = document.createElement('span');
-        info.textContent = `in ${toText(formatDistance(toStart, imperial))} · ` +
+        info.textContent = `${positionUnknown ? 'at' : 'in'} ${toText(formatDistance(toStart, imperial))} · ` +
             `${toText(formatDistance(c.length, imperial))} · ${toText(formatGrade(c.avgGrade))} · ` +
             `${toText(formatElevation(c.ascent, imperial))}`;
         row.append(swatch, name, badge, info);
@@ -442,6 +516,7 @@ function render() {
     let climb = null;
     let pos = null;
     let progress = null;
+    let positionUnknown = false;
     if (!state) {
         message = 'Waiting for rider data...';
     } else if (building && !course) {
@@ -450,15 +525,21 @@ function render() {
         message = 'No route or road data';
     } else {
         pos = coursePosition(state);
+        if (pos == null && course.mode === 'route') {
+            // Position unknown (e.g. stopped off the route): show the route's climbs from the start.
+            pos = 0;
+            positionUnknown = true;
+        }
         if (pos == null) {
-            message = 'Waiting for position on route...';
+            message = 'Waiting for position on road...';
         } else {
             climb = currentOrNextClimb(climbs, pos);
             if (climb) {
                 progress = riderProgress(profile, climb, pos);
                 const approach = Number(s.approachDistance) || 0;
                 const approachMeters = approach * (imperial ? metersPerMile : 1000);
-                if (progress.state === 'approaching' && approach > 0 && progress.toStart > approachMeters) {
+                if (!positionUnknown && progress.state === 'approaching' && approach > 0 &&
+                    progress.toStart > approachMeters) {
                     message = `Next climb in ${toText(formatDistance(progress.toStart, imperial))}`;
                     climb = null;
                 }
@@ -479,7 +560,7 @@ function render() {
             upcoming.push({climb: c, toStart: c.start - pos});
         }
     }
-    renderUpcoming(upcoming);
+    renderUpcoming(upcoming, positionUnknown);
     if (!climb) {
         return;
     }
@@ -487,19 +568,25 @@ function render() {
     setBadge(header.querySelector('.cat-badge'), climb);
     header.querySelector('.climb-name').textContent = climbTitle(climb);
     header.querySelector('.climb-meta').textContent =
-        `${climb.index + 1}/${climbs.length} · max ${toText(formatGrade(climb.maxGrade, 0))}`;
+        `${climb.index + 1}/${climbs.length} · max ${toText(formatGrade(climb.maxGrade, 0))}` +
+        (positionUnknown ? ' · position unknown' : '');
     if (progress.state === 'climbing') {
         setStat(0, 'To top', formatDistance(progress.remaining, imperial));
         setStat(1, 'Climb left', formatElevation(progress.remainingAscent, imperial));
         setStat(2, 'Grade', formatGrade(state.grade));
         setStat(3, 'Avg left', formatGrade(progress.remainingGrade));
+    } else if (positionUnknown) {
+        setStat(0, 'Starts at', formatDistance(climb.start, imperial));
+        setStat(1, 'Length', formatDistance(climb.length, imperial));
+        setStat(2, 'Ascent', formatElevation(climb.ascent, imperial));
+        setStat(3, 'Avg grade', formatGrade(climb.avgGrade));
     } else {
         setStat(0, 'Starts in', formatDistance(progress.toStart, imperial));
         setStat(1, 'Length', formatDistance(climb.length, imperial));
         setStat(2, 'Ascent', formatElevation(climb.ascent, imperial));
         setStat(3, 'Avg grade', formatGrade(climb.avgGrade));
     }
-    renderProfile(climb, pos, progress);
+    renderProfile(climb, pos, progress, positionUnknown);
 }
 
 function applyAppearance() {
@@ -531,92 +618,7 @@ export async function main() {
 
 // ---------- Settings page ----------
 
-async function getSauceVersion() {
-    try {
-        return await common.rpc.getVersion();
-    } catch(e) {
-        return null;
-    }
-}
-
-async function exportRoutes(button, status) {
-    button.disabled = true;
-    try {
-        const list = await common.getRouteList();
-        const step = 10;
-        const out = {
-            exportedAt: new Date().toISOString(),
-            sauceVersion: await getSauceVersion(),
-            step,
-            routes: [],
-        };
-        let n = 0;
-        for (const r of list) {
-            n++;
-            status.textContent = `${n} / ${list.length}`;
-            try {
-                const route = await common.getRoute(r.id);
-                if (!route || !route.distances || route.distances.length < 2) {
-                    continue;
-                }
-                // Resample to a fixed step to keep the file small
-                const d = route.distances;
-                const e = route.elevations;
-                const total = d[d.length - 1];
-                const elevations = [];
-                let j = 0;
-                for (let x = 0; x <= total; x += step) {
-                    while (j < d.length - 2 && d[j + 1] < x) {
-                        j++;
-                    }
-                    const t = d[j + 1] > d[j] ? Math.min(1, Math.max(0, (x - d[j]) / (d[j + 1] - d[j]))) : 0;
-                    elevations.push(Math.round((e[j] + (e[j + 1] - e[j]) * t) * 10) / 10);
-                }
-                const segIds = Array.from(new Set((route.segments || []).map(x => x.id)));
-                const names = await getSegmentNames(segIds);
-                out.routes.push({
-                    id: r.id,
-                    name: r.name,
-                    courseId: r.courseId,
-                    eventOnly: !!r.eventOnly,
-                    supportedLaps: !!route.supportedLaps,
-                    leadinDistance: route.meta ? route.meta.leadinDistance : null,
-                    length: Math.round(total),
-                    elevations,
-                    segments: (route.segments || []).map(x => ({
-                        id: x.id,
-                        name: names.get(x.id) || null,
-                        offset: Math.round(x.offset),
-                        distance: Math.round(x.distance),
-                        leadinOnly: !!x.leadinOnly,
-                        weldOnly: !!x.weldOnly,
-                    })),
-                });
-            } catch(e) {
-                console.warn('Hill Radar: route export failed for', r.id, e);
-            }
-        }
-        const blob = new Blob([JSON.stringify(out)], {type: 'application/json'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'hill-radar-routes.json';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-        status.textContent = `Saved ${out.routes.length} routes`;
-    } catch(e) {
-        console.error(e);
-        status.textContent = `Export failed: ${e.message}`;
-    } finally {
-        button.disabled = false;
-    }
-}
-
 export async function settingsMain() {
     common.initInteractionListeners();
     await common.initSettingsForm('form#options')();
-    const button = document.getElementById('export-routes');
-    const status = document.querySelector('.export-status');
-    button.addEventListener('click', () => exportRoutes(button, status));
 }

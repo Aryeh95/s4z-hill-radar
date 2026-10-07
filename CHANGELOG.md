@@ -2,6 +2,9 @@
 
 ## 0.1.0 (unreleased)
 
+- Fix "Waiting for position on route" on free rides: when Sauce has no route distance, the rider is placed by matching their road position to the route's road sections, then by the game's lap progress.
+- Keep using the selected route if the route briefly disappears from the rider data.
+- When the position is still unknown, show the route's climbs from the start instead of a waiting message.
 - Climbs without an official Zwift segment are named from a list of well-known unofficial climbs (from Brian Mudge's S4Z mods, plus San Luca on the Bologna Time Trial).
 - High resolution gradient coloring: the profile is colored point by point by its grade (new "Gradient coloring" setting; "Sections" keeps the old look).
 - Classic color scheme now blends smoothly from green through yellow, orange and red to dark red instead of fixed bands.

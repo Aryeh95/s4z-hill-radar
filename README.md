@@ -62,8 +62,6 @@ The climb detection, colors and unit formatting are plain JavaScript modules in 
 npm test
 ```
 
-The settings page has an **Export all routes** button that saves every route's elevation profile to a JSON file, which is handy for testing detection against real routes.
-
 ## Credits
 
 Gradient color schemes follow those in [Zenmaster's S4Z mods](https://github.com/Zenmaster28/Zenmaster-s4z-mods).
