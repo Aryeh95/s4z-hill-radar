@@ -71,6 +71,8 @@ The window can be resized; everything scales with it.
 
 ## Development
 
+To release: bump `version` in `manifest.json` and `package.json`, add a `## <version>` section to `CHANGELOG.md`, and push to `main`. The Release workflow then tags `v<version>`, builds the zip and publishes a GitHub release with it.
+
 `npm run zip` builds the release zip (`dist/hill-radar-<version>.zip`, a single `hill-radar/` folder with only the files Sauce needs), as used for the Sauce mod store.
 
 The climb detection, colors and unit formatting are plain JavaScript modules in `pages/src/` with tests:
