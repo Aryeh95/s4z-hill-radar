@@ -28,6 +28,7 @@ const DEFAULTS = {
     minScore: DETECTION_SCORES.small,
     minLength: 500,         // m
     minGrade: 0.03,         // 3%
+    komMinGrade: 0.02,      // official segments named "KOM" count down to 2%
     step: 20,               // m, resample resolution
     smoothDistance: 100,    // m, moving average window for elevation
     dipGap: 400,            // m, max distance without a new high point before a climb part ends
@@ -320,7 +321,13 @@ function maxGradeOver(e, step, a, b, window=100) {
 // Official climb segments (e.g. Zwift KOM segments): a segment that is a climb
 // by the rules becomes a climb, joined with any detected climbing it overlaps.
 // Official segments don't need the 500 m minimum length (e.g. Innsbruck's Leg
-// Snapper KOM, 422 m at 6.9%), but still need the minimum grade and score.
+// Snapper KOM, 422 m at 6.9%), and ones named as a KOM count down to 2% average
+// (e.g. Titans Grove KOM, 2.6 km at 2.2%). Others, such as a whole time-trial
+// course segment, still need 3%. All need the score for the chosen size.
+function segmentMinGrade(seg, o) {
+    return /\bKOM\b/i.test(seg.name || '') ? Math.min(o.komMinGrade, o.minGrade) : o.minGrade;
+}
+
 // Segments only ever extend a climb, never shorten it. Segments that are not
 // climbs (sprints, loops, very gentle segments) are ignored. Where qualifying
 // segments overlap each other, the longest one is used.
@@ -328,11 +335,10 @@ function applySegments(ranges, segments, profile, o) {
     const {e, step} = profile;
     const n = e.length;
     const candidates = [];
-    const segmentRules = {...o, minLength: 0};
     for (const seg of segments) {
         const a = Math.max(0, Math.round((seg.start - profile.start) / step));
         const b = Math.min(n - 1, Math.round((seg.end - profile.start) / step));
-        if (b > a && passes(e, step, a, b, segmentRules)) {
+        if (b > a && passes(e, step, a, b, {...o, minLength: 0, minGrade: segmentMinGrade(seg, o)})) {
             candidates.push({a, b, seg});
         }
     }
@@ -403,7 +409,7 @@ export function detectClimbs(profile, options={}) {
     }).filter(c => {
         // Found on the smoothed profile; make sure the shown (unsmoothed) numbers
         // also meet the rules, so a listed climb never shows e.g. 2.9%.
-        return c.avgGrade >= o.minGrade && c.score >= o.minScore &&
+        return c.avgGrade >= (c.segment ? segmentMinGrade(c.segment, o) : o.minGrade) && c.score >= o.minScore &&
             (c.segment || c.length >= o.minLength);
     }).map((c, index) => ({...c, index}));
 }

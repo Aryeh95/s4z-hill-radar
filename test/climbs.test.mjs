@@ -295,3 +295,20 @@ test('lead-in climb names are not repeated on later laps', () => {
     assert.equal(fallbackClimbName('Makuri 40', {start: 0, end: 1400, length: 1400}, laps), 'Pen to Village Climb (Makuri)');
     assert.equal(fallbackClimbName('Makuri 40', {start: 19000, end: 20400, length: 1400}, laps), null);
 });
+
+test('gentle official KOMs count down to 2%, other gentle segments do not', () => {
+    // 2.6 km at 2.2% (Titans Grove style), flat around it
+    const {distances, elevations} = makeProfile([[2000, 0], [2600, 0.022], [2000, 0]]);
+    const profile = buildProfile(distances, elevations);
+    assert.equal(detectClimbs(profile).length, 0, 'not a climb by terrain alone');
+    const kom = detectClimbs(profile, {segments: [{name: 'Titans Grove KOM', start: 2000, end: 4600}]});
+    assert.equal(kom.length, 1);
+    assert.equal(kom[0].segment.name, 'Titans Grove KOM');
+    near(kom[0].length, 2600, 1, 'length');
+    // Same shape but not named as a KOM (e.g. a whole TT course segment): not a climb
+    assert.equal(detectClimbs(profile, {segments: [{name: 'Bologna TT', start: 2000, end: 4600}]}).length, 0);
+    // Under 2% is still not a climb, even as a KOM
+    const flat = makeProfile([[2000, 0], [4000, 0.015], [2000, 0]]);
+    const p2 = buildProfile(flat.distances, flat.elevations);
+    assert.equal(detectClimbs(p2, {segments: [{name: 'Connector KOM', start: 2000, end: 6000}]}).length, 0);
+});
