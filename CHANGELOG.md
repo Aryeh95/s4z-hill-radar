@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-08)
 
 - Official segments named as a KOM count as climbs at any uphill grade, as long as they meet the detection size, so gentle KOMs show as one climb with their full length (Itza KOM 3.75 km at 1.98%, Zwift KOM Reverse, Jarvis KOM, Titans Grove KOM, Castle KOM, Rooftop KOM) instead of short fragments or nothing.
 - Climb Portal: portal climbs are shown as one climb, named (e.g. Ski Lift Climb, Cauberg), with gradients and elevation scaled by your Climb Portal difficulty.

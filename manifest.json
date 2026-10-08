@@ -5,7 +5,7 @@
     "description": "Detects climbs on your route and shows a gradient-colored profile of the climb with the distance and elevation left to the top",
     "author": "Aryeh Nirenberg",
     "website_url": "https://github.com/Aryeh95/s4z-hill-radar",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "content_css": [],
     "web_root": "pages",
     "windows": [
