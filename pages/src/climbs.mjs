@@ -119,19 +119,41 @@ function interp(arr, profile, distance) {
 /**
  * Where a Climb Portal climb finishes: some portal roads carry on flat past the finish,
  * which Zwift doesn't count, so the climb ends where the road first gets within
- * `tolerance` metres of its highest point.
+ * `tolerance` metres of its highest point (after its lowest). Used when Sauce doesn't
+ * give the finish gate.
  */
 export function portalClimbEnd(distances, elevations, tolerance=1) {
-    let top = -Infinity;
-    for (const x of elevations) {
-        top = Math.max(top, x);
+    let low = 0;
+    for (let i = 1; i < elevations.length; i++) {
+        if (elevations[i] < elevations[low]) {
+            low = i;
+        }
     }
-    for (let i = 0; i < elevations.length; i++) {
+    let top = -Infinity;
+    for (let i = low; i < elevations.length; i++) {
+        top = Math.max(top, elevations[i]);
+    }
+    for (let i = low; i < elevations.length; i++) {
         if (elevations[i] >= top - tolerance) {
             return distances[i];
         }
     }
     return distances[distances.length - 1];
+}
+
+/**
+ * Where a Climb Portal climb starts: the road start, unless the road data begins with a
+ * drop of more than `maxDrop` metres (Col de Sarenne's starts 1500 m up), then the lowest
+ * point before `end`.
+ */
+export function portalClimbStart(distances, elevations, end, maxDrop=50) {
+    let low = 0;
+    for (let i = 1; i < elevations.length && distances[i] <= end; i++) {
+        if (elevations[i] < elevations[low]) {
+            low = i;
+        }
+    }
+    return elevations[0] - elevations[low] > maxDrop ? distances[low] : distances[0];
 }
 
 // Unsmoothed elevation (what the game reports) at `distance`.

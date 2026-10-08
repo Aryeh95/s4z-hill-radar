@@ -1,6 +1,7 @@
 import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
-        autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbEnd, DETECTION_SCORES} from './climbs.mjs';
+        autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbStart, portalClimbEnd,
+        DETECTION_SCORES} from './climbs.mjs';
 import {ClimbEffort, formatDuration} from './effort.mjs';
 import {gradeColor} from './colors.mjs';
 import {fallbackClimbName} from './names.mjs';
@@ -250,23 +251,45 @@ async function buildPortalCourse(state, key) {
         distances = distances.reverse().map(x => total - x);
         elevations = elevations.reverse();
     }
+    // The climb runs from the bottom to Zwift's finish gate, not the flat run-out past it.
+    // Sauce 2.3+ gives the gate's position and the climb's name; otherwise end at the top.
+    const total = distances[distances.length - 1];
+    let end = portalGateDistance(road, total, !!state.reverse);
+    const gate = end != null;
+    if (!gate) {
+        end = portalClimbEnd(distances, elevations);
+    }
+    const start = portalClimbStart(distances, elevations, end);
     // Difficulty scales the gradient, so scale the height gained from the bottom.
     const scale = portalScale(state);
     const base = elevations[0];
     elevations = elevations.map(x => base + (x - base) * scale);
-    // The portal climb road is shown as one climb, like Zwift does, up to the top (not the
-    // flat run-out past the finish). Known climbs have names; newer ones (not in the list
-    // yet) are recognised by actually climbing. Other portal roads, e.g. a flat lead-in,
-    // get normal detection.
+    // Older Sauce: known climbs are named from a list; newer ones are recognised by
+    // actually climbing. Other portal roads get normal detection.
     const info = portalClimbs[state.roadId];
-    const end = portalClimbEnd(distances, elevations, scale);  // 1 m at 100% difficulty
-    const length = end - distances[0];
-    const gain100 = (Math.max(...elevations) - base) / scale;  // at 100% difficulty
-    const isClimb = !!info || (gain100 >= 10 && length > 0 && gain100 / length >= 0.01);
+    const length = end - start;
+    const top = Math.max(...elevations.filter((x, i) => distances[i] >= start && distances[i] <= end));
+    const gain100 = (top - (elevations[distances.indexOf(start)] ?? base)) / scale;  // at 100% difficulty
+    const isClimb = !!road.portalName || !!info || (gain100 >= 10 && length > 0 && gain100 / length >= 0.01);
     const name = road.portalName || (info ? info[0] : isClimb ? 'Climb Portal climb' : 'Climb Portal');
-    const segments = isClimb ? [{name, start: distances[0], end, always: true}] : [];
+    const segments = isClimb ? [{name, start, end, always: true}] : [];
     return {key, mode: 'road', portal: true, portalClimb: isClimb, scale, name, road, reverse: !!state.reverse,
-            distances, elevations, segments};
+            gate, distances, elevations, segments};
+}
+
+// Distance along the portal road to Zwift's finish gate (Sauce 2.3+), or undefined.
+function portalGateDistance(road, total, reverse) {
+    const rp = road.portalRoadEndGateRoadTime;
+    const rcp = road.curvePath;
+    if (!(rp > 0 && rp < 1) || !rcp || typeof rcp.distanceAtRoadPercent !== 'function') {
+        return;
+    }
+    let d = rcp.distanceAtRoadPercent(rp) / 100;
+    if (reverse) {
+        d = total - d;
+    }
+    // Sanity check: the finish is well into the road, not past its end
+    return d > total * 0.25 && d <= total + 1 ? Math.min(d, total) : undefined;
 }
 
 async function buildCourse(state, key) {
@@ -758,6 +781,8 @@ function renderDebug(state, pos, positionUnknown) {
         `progress ${v(st.progress)}`,
         `eventDistance ${v(st.eventDistance)}`,
         `road ${v(st.roadId)}${st.reverse ? ' rev' : ''} @ ${v(st.roadTime)}`,
+        ...(course?.portal && course.segments.length ? [`portal ${Math.round(course.segments[0].start)}-` +
+            `${Math.round(course.segments[0].end)} m (${course.gate ? 'gate' : 'top'})`] : []),
     ].join(' · ');
 }
 

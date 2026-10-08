@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
-        autoChunkLength, portalClimbEnd, DETECTION_SCORES} from '../pages/src/climbs.mjs';
+        autoChunkLength, portalClimbStart, portalClimbEnd, DETECTION_SCORES} from '../pages/src/climbs.mjs';
 import {gradeColor, SCHEMES} from '../pages/src/colors.mjs';
 import {routeKey, fallbackClimbName} from '../pages/src/names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
@@ -407,4 +407,17 @@ test('a Climb Portal climb ends at the top, not on the flat run-out past the fin
     near(portalClimbEnd(distances, elevations.map(x => x * 1.25), 1.25), 2000, 20, 'finish at 125%');
     // A road that climbs to the very end keeps its full length
     assert.equal(portalClimbEnd([0, 1000], [0, 50]), 1000);
+});
+
+test('a Climb Portal climb starts at the bottom even when the road data begins with a drop', () => {
+    // Like Col de Sarenne: the data starts 150 m up and drops straight down, then climbs
+    const distances = [], elevations = [];
+    for (let d = 0; d <= 3000; d += 10) {
+        distances.push(d);
+        elevations.push(d <= 150 ? 150 - d : d <= 2650 ? (d - 150) * 0.06 : 150);
+    }
+    assert.equal(portalClimbStart(distances, elevations, 2650), 150);
+    near(portalClimbEnd(distances, elevations), 2650, 20, 'top');
+    // A small dip after the start (under 50 m) keeps the road start
+    assert.equal(portalClimbStart([0, 100, 1000], [10, 0, 80], 1000), 0);
 });

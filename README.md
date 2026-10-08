@@ -45,7 +45,7 @@ Climbs continue through dips and short descents, so a climb with a dip in the mi
 
 Detection works on routes and events (including multi-lap and distance-based events). When riding without a route, it uses the current road only.
 
-**Climb Portal:** the portal climb is shown as one climb with its name (e.g. Ski Lift Climb, Cauberg). The gradients and elevation follow your Climb Portal difficulty setting, the same way Zwift scales them, so at 50% difficulty a 8% climb shows as 4%. Like Zwift, the climb ends at the top, so a flat run-out past the finish isn't counted.
+**Climb Portal:** the portal climb is shown as one climb with its name (e.g. Ski Lift Climb, Cauberg). The gradients and elevation follow your Climb Portal difficulty setting, the same way Zwift scales them, so at 50% difficulty a 8% climb shows as 4%. Like Zwift, the climb ends at the finish gate, so the flat run-out past it isn't counted. Climb names and finish gates come from Sauce (2.3 or newer).
 
 When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to average at least 3% (2% for segments Zwift names as a KOM, such as Titans Grove KOM at 2.2%) and meet the detection size, so sprints, laps, whole-course segments and very gentle segments are not shown as climbs. Official segments don't need the 500 m minimum length, so short KOMs such as Innsbruck's Leg Snapper (422 m at 6.9%) are included. Climbs without an official segment are found from the elevation profile. When one of those matches a well-known unofficial climb (for example San Luca on the Bologna Time Trial, or the climbs named in Brian Mudge's S4Z mods), it gets that name; otherwise it is shown as "Climb 1", "Climb 2" and so on.
 
@@ -91,7 +91,7 @@ npm test
 ## Credits
 
 Gradient color schemes follow those in [Zenmaster's S4Z mods](https://github.com/Zenmaster28/Zenmaster-s4z-mods).
-Names for unofficial climbs come mostly from Brian Mudge's S4Z mods (GPL-3.0); Climb Portal climb names come from Zenmaster's S4Z mods.
+Names for unofficial climbs come mostly from Brian Mudge's S4Z mods (GPL-3.0); Climb Portal climb names come from Sauce, with Zenmaster's S4Z mods' list as a fallback for older Sauce versions.
 Climb scoring follows the common climb score used by bike computers.
 
 ## License
