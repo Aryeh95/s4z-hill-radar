@@ -61,7 +61,7 @@ The window can be resized; everything scales with it.
 
 ## Install
 
-**From the Sauce mod store** (once listed): open Sauce's mod settings, find **Hill Radar** and install it.
+**From the Sauce mod store** (recommended): Hill Radar is listed in the [Sauce mod store](https://mods.sauce.llc). Open Sauce's mod settings, find **Hill Radar** and install it; updates arrive the same way.
 
 **Manually:**
 
