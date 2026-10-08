@@ -254,14 +254,18 @@ async function buildPortalCourse(state, key) {
     const scale = portalScale(state);
     const base = elevations[0];
     elevations = elevations.map(x => base + (x - base) * scale);
-    // Only a known portal climb road is shown as one whole climb; other portal roads
-    // (e.g. the flat lead-in before the climb) get normal detection.
+    // The portal climb road is shown as one whole climb, like Zwift does. Known climbs
+    // have names; newer ones (not in the list yet) are recognised by actually climbing.
+    // Other portal roads, e.g. a flat lead-in, get normal detection.
     const info = portalClimbs[state.roadId];
-    const name = info ? info[0] : 'Climb Portal';
-    const segments = info ?
+    const length = distances[distances.length - 1] - distances[0];
+    const gain100 = (elevations[elevations.length - 1] - base) / scale;  // at 100% difficulty
+    const isClimb = !!info || (gain100 >= 10 && length > 0 && gain100 / length >= 0.01);
+    const name = info ? info[0] : isClimb ? 'Climb Portal climb' : 'Climb Portal';
+    const segments = isClimb ?
         [{name, start: distances[0], end: distances[distances.length - 1], always: true}] :
         [];
-    return {key, mode: 'road', portal: true, portalClimb: !!info, scale, name, road, reverse: !!state.reverse,
+    return {key, mode: 'road', portal: true, portalClimb: isClimb, scale, name, road, reverse: !!state.reverse,
             distances, elevations, segments};
 }
 
