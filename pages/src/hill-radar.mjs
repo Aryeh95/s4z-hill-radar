@@ -1048,60 +1048,7 @@ export async function main() {
 
 // ---------- Settings page ----------
 
-// Saves every Climb Portal road (its plain fields, length and a 10 m elevation profile) to JSON.
-async function exportPortalRoads(button, status) {
-    button.disabled = true;
-    try {
-        const roads = await common.getRoads('portal');
-        const step = 10;
-        const out = {exportedAt: new Date().toISOString(), step, roads: []};
-        let version = null;
-        try {
-            version = await common.rpc.getVersion();
-        } catch(e) {/* older Sauce */}
-        out.sauceVersion = version;
-        for (const road of roads || []) {
-            const fields = {};
-            for (const [k, v] of Object.entries(road)) {
-                if (['string', 'number', 'boolean'].includes(typeof v)) {
-                    fields[k] = v;
-                }
-            }
-            const d = road.distances || [];
-            const e = road.elevations || [];
-            const length = d.length ? d[d.length - 1] : 0;
-            const elevations = [];
-            let j = 0;
-            for (let x = 0; d.length > 1 && x <= length; x += step) {
-                while (j < d.length - 2 && d[j + 1] < x) {
-                    j++;
-                }
-                const t = d[j + 1] > d[j] ? Math.min(1, Math.max(0, (x - d[j]) / (d[j + 1] - d[j]))) : 0;
-                elevations.push(Math.round((e[j] + (e[j + 1] - e[j]) * t) * 10) / 10);
-            }
-            out.roads.push({...fields, length: Math.round(length), elevations});
-        }
-        const blob = new Blob([JSON.stringify(out)], {type: 'application/json'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'hill-radar-portal-roads.json';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-        status.textContent = `Saved ${out.roads.length} roads`;
-    } catch(e) {
-        console.error(e);
-        status.textContent = `Export failed: ${e.message}`;
-    } finally {
-        button.disabled = false;
-    }
-}
-
 export async function settingsMain() {
     common.initInteractionListeners();
     await common.initSettingsForm('form#options')();
-    const button = document.getElementById('export-portal');
-    const status = document.querySelector('.export-status');
-    button.addEventListener('click', () => exportPortalRoads(button, status));
 }
