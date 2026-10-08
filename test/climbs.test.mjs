@@ -324,3 +324,61 @@ test('gentle climbs are found only with a lower minimum grade', () => {
     near(gentle[0].length, 1800, 250, 'length');
     near(gentle[0].avgGrade, 0.017, 0.003, 'grade');
 });
+
+import {ClimbEffort, formatDuration} from '../pages/src/effort.mjs';
+
+function ride(effort, {from, to, speed, power, hr, cadence, weight=75, t0=1000, step=1}) {
+    // speed in m/s; one sample per `step` seconds
+    let done = false;
+    for (let t = 0, pos = from; !done && pos <= to + speed; t += step, pos += speed * step) {
+        done = effort.add({t: t0 + t, pos, power, hr, cadence, weight});
+    }
+    return done;
+}
+
+test('climb effort: time, power, HR and VAM over a full climb', () => {
+    const climb = {start: 1000, end: 3000, length: 2000, ascent: 100};
+    const effort = new ClimbEffort(climb);
+    // 5 m/s from before the climb to past the top -> 2000 m in 400 s
+    const done = ride(effort, {from: 0, to: 3500, speed: 5, power: 250, hr: 150, cadence: 85});
+    assert.ok(done, 'finished at the top');
+    const s = effort.summary(pos => 100 * (climb.end - pos) / climb.length);
+    near(s.time, 400, 1.5, 'climb time');
+    near(s.avgPower, 250, 0.5, 'avg power');
+    near(s.wkg, 250 / 75, 0.01, 'w/kg');
+    near(s.avgHR, 150, 0.5, 'avg HR');
+    assert.equal(s.maxHR, 150);
+    near(s.avgCadence, 85, 0.5, 'cadence');
+    near(s.avgSpeed, 18, 0.1, 'avg speed kph');
+    near(s.vam, 900, 5, 'VAM m/h');
+    assert.equal(s.partial, false);
+});
+
+test('climb effort: joined mid-climb is partial; no HR stays empty', () => {
+    const climb = {start: 1000, end: 3000, length: 2000, ascent: 100};
+    const effort = new ClimbEffort(climb);
+    ride(effort, {from: 2000, to: 3200, speed: 4, power: 200, hr: 0, cadence: 0});
+    const s = effort.summary();
+    assert.equal(s.partial, true);
+    near(s.distance, 1000, 5, 'distance tracked');
+    near(s.time, 250, 2, 'time');
+    assert.equal(s.avgHR, null);
+    assert.equal(s.maxHR, null);
+    assert.equal(s.avgCadence, null);
+});
+
+test('climb effort: not finished before the top, duplicates ignored', () => {
+    const climb = {start: 1000, end: 3000, length: 2000, ascent: 100};
+    const effort = new ClimbEffort(climb);
+    assert.equal(effort.add({t: 1, pos: 900, power: 200}), false);
+    assert.equal(effort.add({t: 2, pos: 1100, power: 200}), false);
+    assert.equal(effort.add({t: 2, pos: 1100, power: 999}), false);
+    assert.equal(effort.summary(), null, 'no summary before the top');
+    near(effort.powerSum / effort.time, 200, 0.01, 'duplicate sample ignored');
+});
+
+test('duration formatting', () => {
+    assert.equal(formatDuration(65), '1:05');
+    assert.equal(formatDuration(3725), '1:02:05');
+    assert.equal(formatDuration(NaN), '-');
+});

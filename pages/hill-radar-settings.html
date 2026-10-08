@@ -59,6 +59,16 @@
                     <input type="number" name="upcomingCount" min="0" max="5" step="1" style="--size: 4"/>
                 </label>
 
+                <label title="When you reach the top of a climb, show your time, power, heart rate and more for a few seconds">
+                    <key>Climb summary at the top:</key>
+                    <input type="checkbox" name="climbSummary"/>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- show for (seconds):</key>
+                    <input type="range" name="summarySeconds" min="5" max="30" step="1" data-depends-on="climbSummary"/>
+                    <input type="number" name="summarySeconds" min="5" max="30" step="1" style="--size: 4" data-depends-on="climbSummary"/>
+                </label>
+
                 <div class="title">Units</div>
                 <label title="Auto follows the Units setting in Sauce's main settings">
                     <key>Units:</key>

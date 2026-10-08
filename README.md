@@ -8,6 +8,7 @@ A [Sauce for Zwift](https://www.sauce.llc/products/sauce4zwift/) mod that finds 
 - Current grade and the average grade of what is left
 - Before a climb: distance to the start, length, ascent and average grade
 - A list of the next climbs on the route
+- At the top of a climb, a short **climb summary**: time, average power, W/kg, VAM, average and max heart rate, average speed and cadence (marked "partial" if you joined partway up)
 - Climb numbers count every climb since the start of the ride, across laps (e.g. **4/6 · lap 2** in an event, **#5 · lap 3** on a free ride)
 - A **Route climbs** list (title bar button) of every climb on the route; click any climb there or in the upcoming list to preview it
 
@@ -51,6 +52,7 @@ When the route has an official Zwift climb segment (a KOM), that climb uses the 
 - Climb detection: All / Medium and large / Only large
 - Include gentle climbs (1.5%+ instead of 3%)
 - Show next climb within (km or mi; 0 = always)
+- Climb summary at the top, and how long it shows (5–30 seconds)
 - Hide when no climb
 - Upcoming climbs list (0 to 5)
 - Units: Auto (follows Sauce), Metric or Imperial

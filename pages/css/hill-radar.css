@@ -346,6 +346,34 @@ html:not(.settings-page) body {
     display: none;
 }
 
+.summary {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--hr-bg);
+    border-radius: 0.4em;
+    padding: 0.3em 0.5em 0.4em;
+}
+
+.summary[hidden] {
+    display: none;
+}
+
+.summary-check {
+    color: #4cd964;
+    font-weight: 700;
+}
+
+.summary-close {
+    cursor: pointer;
+    padding: 0 0.3em;
+    font-weight: 700;
+}
+
+.summary-stats {
+    grid-template-rows: auto auto;
+    row-gap: 0.4em;
+}
+
 /* Settings page */
 .settings-page form label key {
     display: inline-block;

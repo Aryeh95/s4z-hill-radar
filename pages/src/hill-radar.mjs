@@ -1,6 +1,7 @@
 import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
-        autoChunkLength, elevationAt, gradeAt, DETECTION_SCORES} from './climbs.mjs';
+        autoChunkLength, elevationAt, gradeAt, ascentAt, DETECTION_SCORES} from './climbs.mjs';
+import {ClimbEffort, formatDuration} from './effort.mjs';
 import {gradeColor} from './colors.mjs';
 import {fallbackClimbName} from './names.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText, metersPerMile} from './units.mjs';
@@ -27,6 +28,8 @@ common.settingsStore.setDefault({
     backgroundColor: '#00ff00',
     dataTransparency: 0.7,
     showDebug: false,
+    climbSummary: true,
+    summarySeconds: 12,
 });
 
 const settings = () => common.settingsStore.get();
@@ -37,6 +40,10 @@ let climbs = [];
 let lastState;
 let building;
 let showList = false;       // route climbs list open
+let effort = null;          // ClimbEffort for the climb being ridden (or just ahead)
+let summary = null;         // {stats, until}: summary shown after topping a climb
+let lastSampleTime = null;
+let lastWeight = null;
 let previewIndex = null;    // climb being previewed (index into climbs)
 
 
@@ -399,17 +406,24 @@ async function onWatching(ad) {
         return;
     }
     lastState = state;
+    if (ad.athlete && ad.athlete.weight > 0) {
+        lastWeight = ad.athlete.weight;
+    }
     if (ad.athleteId !== lastAthleteId) {
         // Watching someone else: forget where the previous rider was
         lastAthleteId = ad.athleteId;
         lastPosition = null;
         previewIndex = null;
+        effort = null;
+        summary = null;
+        lastWeight = ad.athlete && ad.athlete.weight > 0 ? ad.athlete.weight : null;
     }
     const key = courseKey(state);
     if (baseKey(key) !== lastBaseKey) {
         lastBaseKey = baseKey(key);
         lastPosition = null;
         previewIndex = null;
+        effort = null;
     }
     const recentlyFailed = failedBuild && failedBuild.key === key && Date.now() - failedBuild.time < 15000;
     if (!key) {
@@ -741,6 +755,13 @@ function render() {
         }
     }
     renderDebug(state, pos, positionUnknown);
+    trackEffort(state, pos, positionUnknown);
+    const summaryEl = content.querySelector('.summary');
+    const showSummary = !!(summary && Date.now() < summary.until && previewIndex == null && !showList);
+    summaryEl.hidden = !showSummary;
+    if (showSummary) {
+        renderSummary(summaryEl, summary.stats);
+    }
     const listEl = content.querySelector('.route-list');
     listEl.hidden = !showList;
     if (showList) {
@@ -763,11 +784,11 @@ function render() {
             progress = {state: 'approaching', toStart: known && pos < climb.start ? climb.start - pos : null};
         }
     }
-    climbEl.hidden = !climb;
+    climbEl.hidden = !climb || showSummary;
     climbEl.classList.toggle('previewing', previewing);
     climbEl.querySelector('.preview-close').hidden = !previewing;
-    idleEl.textContent = climb ? '' : message;
-    content.classList.toggle('hide-idle', !climb && !!s.hideWhenIdle);
+    idleEl.textContent = climb || showSummary ? '' : message;
+    content.classList.toggle('hide-idle', !climb && !showSummary && !!s.hideWhenIdle);
     // Later climbs
     const upcoming = [];
     const count = Number(s.upcomingCount) || 0;
@@ -778,7 +799,7 @@ function render() {
         }
     }
     renderUpcoming(upcoming, positionUnknown);
-    if (!climb) {
+    if (!climb || showSummary) {
         return;
     }
     const header = climbEl.querySelector('.climb-header');
@@ -808,6 +829,89 @@ function render() {
     }
     renderProfile(climb, pos, progress, showAt);
 }
+
+// ---------- Climb summary ----------
+
+function trackEffort(state, pos, positionUnknown) {
+    if (!state || pos == null || positionUnknown || !climbs.length || course?.mode !== 'route') {
+        return;
+    }
+    const t = Number.isFinite(state.worldTime) ? state.worldTime / 1000 : Date.now() / 1000;
+    if (t === lastSampleTime) {
+        return;  // same update drawn again (e.g. window resize)
+    }
+    lastSampleTime = t;
+    const sample = {t, pos, power: state.power, hr: state.heartrate, cadence: state.cadence, weight: lastWeight};
+    if (effort) {
+        const stillThere = climbs.some(c => Math.abs(c.start - effort.climb.start) < 1);
+        const jumped = effort.last && Math.abs(pos - effort.last.pos) > 2000;
+        if (!stillThere || jumped || pos < effort.climb.start - 1500) {
+            effort = null;  // route changed, climbs re-detected, teleport or turned back
+        }
+    }
+    if (effort) {
+        if (effort.add(sample)) {
+            finishEffort(effort);
+            effort = null;
+        } else if (pos > effort.climb.end) {
+            effort = null;
+        }
+        if (effort) {
+            return;
+        }
+    }
+    // Start following the climb being ridden, or the next one within 1 km
+    const next = climbs.find(c => pos >= c.start - 1000 && pos < c.end);
+    if (next) {
+        effort = new ClimbEffort(next);
+        effort.add(sample);
+    }
+}
+
+function finishEffort(e) {
+    const s = settings();
+    if (s.climbSummary === false || e.coverage() < 0.5) {
+        return;
+    }
+    const top = ascentAt(profile, e.climb.end);
+    const stats = e.summary(pos => Math.max(0, top - ascentAt(profile, pos)));
+    if (!stats) {
+        return;
+    }
+    const seconds = Math.min(60, Math.max(3, Number(s.summarySeconds) || 12));
+    summary = {stats, until: Date.now() + seconds * 1000};
+    setTimeout(render, seconds * 1000 + 50);
+}
+
+function setSummaryStat(el, i, label, f) {
+    const cell = el.querySelector(`.stat[data-sstat="${i}"]`);
+    cell.querySelector('.label').textContent = label;
+    cell.querySelector('.num').textContent = typeof f === 'string' ? f : f.value;
+    cell.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
+}
+
+function renderSummary(el, x) {
+    const imperial = isImperial();
+    const c = x.climb;
+    el.querySelector('.climb-name').textContent = climbTitle(c);
+    el.querySelector('.climb-meta').textContent =
+        `${toText(formatDistance(x.distance, imperial))} · ${toText(formatGrade(c.avgGrade))}` +
+        (x.partial ? ' · partial' : '');
+    const num = v => v == null || !Number.isFinite(v) ? '-' : null;
+    setSummaryStat(el, 0, 'Time', formatDuration(x.time));
+    setSummaryStat(el, 1, 'Avg power', num(x.avgPower) ?? {value: Math.round(x.avgPower).toString(), unit: 'w'});
+    setSummaryStat(el, 2, 'W/kg', num(x.wkg) ?? x.wkg.toFixed(1));
+    setSummaryStat(el, 3, 'VAM', num(x.vam) ?? (imperial ?
+        {value: Math.round(x.vam * 3.28084).toString(), unit: 'ft/h'} :
+        {value: Math.round(x.vam).toString(), unit: 'm/h'}));
+    setSummaryStat(el, 4, 'Avg HR', num(x.avgHR) ?? {value: Math.round(x.avgHR).toString(), unit: 'bpm'});
+    setSummaryStat(el, 5, 'Max HR', num(x.maxHR) ?? {value: Math.round(x.maxHR).toString(), unit: 'bpm'});
+    setSummaryStat(el, 6, 'Avg speed', num(x.avgSpeed) ?? (imperial ?
+        {value: (x.avgSpeed / 1.609344).toFixed(1), unit: 'mph'} :
+        {value: x.avgSpeed.toFixed(1), unit: 'kph'}));
+    setSummaryStat(el, 7, 'Cadence', num(x.avgCadence) ?? {value: Math.round(x.avgCadence).toString(), unit: 'rpm'});
+}
+
 
 function applyAppearance() {
     const s = settings();
@@ -847,6 +951,10 @@ export async function main() {
     });
     document.querySelector('.route-list-close').addEventListener('click', () => {
         showList = false;
+        render();
+    });
+    document.querySelector('.summary-close').addEventListener('click', () => {
+        summary = null;
         render();
     });
     document.querySelector('.preview-close').addEventListener('click', () => {
