@@ -116,6 +116,24 @@ function interp(arr, profile, distance) {
     return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
 }
 
+/**
+ * Where a Climb Portal climb finishes: some portal roads carry on flat past the finish,
+ * which Zwift doesn't count, so the climb ends where the road first gets within
+ * `tolerance` metres of its highest point.
+ */
+export function portalClimbEnd(distances, elevations, tolerance=1) {
+    let top = -Infinity;
+    for (const x of elevations) {
+        top = Math.max(top, x);
+    }
+    for (let i = 0; i < elevations.length; i++) {
+        if (elevations[i] >= top - tolerance) {
+            return distances[i];
+        }
+    }
+    return distances[distances.length - 1];
+}
+
 // Unsmoothed elevation (what the game reports) at `distance`.
 export function elevationAt(profile, distance) {
     return interp(profile.raw, profile, distance);

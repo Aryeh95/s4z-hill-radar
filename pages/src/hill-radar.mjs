@@ -1,6 +1,6 @@
 import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
-        autoChunkLength, elevationAt, gradeAt, ascentAt, DETECTION_SCORES} from './climbs.mjs';
+        autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbEnd, DETECTION_SCORES} from './climbs.mjs';
 import {ClimbEffort, formatDuration} from './effort.mjs';
 import {gradeColor} from './colors.mjs';
 import {fallbackClimbName} from './names.mjs';
@@ -254,17 +254,17 @@ async function buildPortalCourse(state, key) {
     const scale = portalScale(state);
     const base = elevations[0];
     elevations = elevations.map(x => base + (x - base) * scale);
-    // The portal climb road is shown as one whole climb, like Zwift does. Known climbs
-    // have names; newer ones (not in the list yet) are recognised by actually climbing.
-    // Other portal roads, e.g. a flat lead-in, get normal detection.
+    // The portal climb road is shown as one climb, like Zwift does, up to the top (not the
+    // flat run-out past the finish). Known climbs have names; newer ones (not in the list
+    // yet) are recognised by actually climbing. Other portal roads, e.g. a flat lead-in,
+    // get normal detection.
     const info = portalClimbs[state.roadId];
-    const length = distances[distances.length - 1] - distances[0];
-    const gain100 = (elevations[elevations.length - 1] - base) / scale;  // at 100% difficulty
+    const end = portalClimbEnd(distances, elevations, scale);  // 1 m at 100% difficulty
+    const length = end - distances[0];
+    const gain100 = (Math.max(...elevations) - base) / scale;  // at 100% difficulty
     const isClimb = !!info || (gain100 >= 10 && length > 0 && gain100 / length >= 0.01);
-    const name = info ? info[0] : isClimb ? 'Climb Portal climb' : 'Climb Portal';
-    const segments = isClimb ?
-        [{name, start: distances[0], end: distances[distances.length - 1], always: true}] :
-        [];
+    const name = road.portalName || (info ? info[0] : isClimb ? 'Climb Portal climb' : 'Climb Portal');
+    const segments = isClimb ? [{name, start: distances[0], end, always: true}] : [];
     return {key, mode: 'road', portal: true, portalClimb: isClimb, scale, name, road, reverse: !!state.reverse,
             distances, elevations, segments};
 }
@@ -1023,7 +1023,60 @@ export async function main() {
 
 // ---------- Settings page ----------
 
+// Saves every Climb Portal road (its plain fields, length and a 10 m elevation profile) to JSON.
+async function exportPortalRoads(button, status) {
+    button.disabled = true;
+    try {
+        const roads = await common.getRoads('portal');
+        const step = 10;
+        const out = {exportedAt: new Date().toISOString(), step, roads: []};
+        let version = null;
+        try {
+            version = await common.rpc.getVersion();
+        } catch(e) {/* older Sauce */}
+        out.sauceVersion = version;
+        for (const road of roads || []) {
+            const fields = {};
+            for (const [k, v] of Object.entries(road)) {
+                if (['string', 'number', 'boolean'].includes(typeof v)) {
+                    fields[k] = v;
+                }
+            }
+            const d = road.distances || [];
+            const e = road.elevations || [];
+            const length = d.length ? d[d.length - 1] : 0;
+            const elevations = [];
+            let j = 0;
+            for (let x = 0; d.length > 1 && x <= length; x += step) {
+                while (j < d.length - 2 && d[j + 1] < x) {
+                    j++;
+                }
+                const t = d[j + 1] > d[j] ? Math.min(1, Math.max(0, (x - d[j]) / (d[j + 1] - d[j]))) : 0;
+                elevations.push(Math.round((e[j] + (e[j + 1] - e[j]) * t) * 10) / 10);
+            }
+            out.roads.push({...fields, length: Math.round(length), elevations});
+        }
+        const blob = new Blob([JSON.stringify(out)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'hill-radar-portal-roads.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+        status.textContent = `Saved ${out.roads.length} roads`;
+    } catch(e) {
+        console.error(e);
+        status.textContent = `Export failed: ${e.message}`;
+    } finally {
+        button.disabled = false;
+    }
+}
+
 export async function settingsMain() {
     common.initInteractionListeners();
     await common.initSettingsForm('form#options')();
+    const button = document.getElementById('export-portal');
+    const status = document.querySelector('.export-status');
+    button.addEventListener('click', () => exportPortalRoads(button, status));
 }

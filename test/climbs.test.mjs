@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
-        autoChunkLength, DETECTION_SCORES} from '../pages/src/climbs.mjs';
+        autoChunkLength, portalClimbEnd, DETECTION_SCORES} from '../pages/src/climbs.mjs';
 import {gradeColor, SCHEMES} from '../pages/src/colors.mjs';
 import {routeKey, fallbackClimbName} from '../pages/src/names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
@@ -393,4 +393,18 @@ test('an always-shown climb (Climb Portal) covers the whole road whatever its gr
     assert.equal(climbs.length, 1);
     assert.equal(climbs[0].segment.name, 'Eazy Rider');
     near(climbs[0].length, 3000, 20, 'whole road');
+});
+
+test('a Climb Portal climb ends at the top, not on the flat run-out past the finish', () => {
+    // 2 km at 6.5% then 300 m flat (rising 0.3 m), like Mur de Bretagne
+    const distances = [], elevations = [];
+    for (let d = 0; d <= 2300; d += 10) {
+        distances.push(d);
+        elevations.push(d <= 2000 ? d * 0.065 : 130 + (d - 2000) * 0.001);
+    }
+    near(portalClimbEnd(distances, elevations), 2000, 20, 'finish');
+    // Scaled by 125% difficulty with a 1.25 m tolerance: same finish
+    near(portalClimbEnd(distances, elevations.map(x => x * 1.25), 1.25), 2000, 20, 'finish at 125%');
+    // A road that climbs to the very end keeps its full length
+    assert.equal(portalClimbEnd([0, 1000], [0, 50]), 1000);
 });
