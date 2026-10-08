@@ -4,6 +4,7 @@ import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChun
 import {ClimbEffort, formatDuration} from './effort.mjs';
 import {gradeColor} from './colors.mjs';
 import {fallbackClimbName} from './names.mjs';
+import {portalClimbs} from './climb-names.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText, metersPerMile} from './units.mjs';
 
 const doc = document.documentElement;
@@ -70,7 +71,21 @@ const routeMemoryMs = 120000;
 // routeId -> whether the route supports laps (learned when the route loads)
 const routeLapsSupport = new Map();
 
+// Climb Portal: portal roads are numbered from 10000 and live in Sauce's 'portal' road set.
+function isPortal(state) {
+    return !!state.portal || state.roadId >= 10000;
+}
+
+// Climb Portal difficulty as a factor (1 = 100%); it scales the gradient like Sauce does.
+function portalScale(state) {
+    const s = state.portalElevationScale;
+    return Number.isFinite(s) && s > 0 ? s / 100 : 1;
+}
+
 function courseKey(state) {
+    if (isPortal(state) && state.roadId != null) {
+        return `portal:${state.roadId}:${!!state.reverse}:${Math.round(portalScale(state) * 100)}`;
+    }
     if (state.eventSubgroupId) {
         return `event:${state.eventSubgroupId}`;
     }
@@ -220,7 +235,36 @@ async function buildRoadCourse(state, key) {
     return {key, mode: 'road', road, reverse: !!state.reverse, distances, elevations, segments: []};
 }
 
+async function buildPortalCourse(state, key) {
+    if (typeof common.getRoad !== 'function') {
+        return null;
+    }
+    const road = await common.getRoad('portal', state.roadId);
+    if (!road || !road.distances || !road.elevations) {
+        return null;
+    }
+    let distances = Array.from(road.distances);
+    let elevations = Array.from(road.elevations);
+    if (state.reverse) {
+        const total = distances[distances.length - 1];
+        distances = distances.reverse().map(x => total - x);
+        elevations = elevations.reverse();
+    }
+    // Difficulty scales the gradient, so scale the height gained from the bottom.
+    const scale = portalScale(state);
+    const base = elevations[0];
+    elevations = elevations.map(x => base + (x - base) * scale);
+    const info = portalClimbs[state.roadId];
+    const name = info ? info[0] : 'Climb Portal';
+    const segments = [{name, start: distances[0], end: distances[distances.length - 1], always: true}];
+    return {key, mode: 'road', portal: true, scale, name, road, reverse: !!state.reverse,
+            distances, elevations, segments};
+}
+
 async function buildCourse(state, key) {
+    if (key.startsWith('portal:')) {
+        return await buildPortalCourse(state, key);
+    }
     if (key.startsWith('road:')) {
         return await buildRoadCourse(state, key);
     }
@@ -833,7 +877,8 @@ function render() {
 // ---------- Climb summary ----------
 
 function trackEffort(state, pos, positionUnknown) {
-    if (!state || pos == null || positionUnknown || !climbs.length || course?.mode !== 'route') {
+    if (!state || pos == null || positionUnknown || !climbs.length ||
+        !(course?.mode === 'route' || course?.portal)) {
         return;
     }
     const t = Number.isFinite(state.worldTime) ? state.worldTime / 1000 : Date.now() / 1000;

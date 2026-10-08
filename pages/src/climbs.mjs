@@ -338,7 +338,8 @@ function applySegments(ranges, segments, profile, o) {
     for (const seg of segments) {
         const a = Math.max(0, Math.round((seg.start - profile.start) / step));
         const b = Math.min(n - 1, Math.round((seg.end - profile.start) / step));
-        if (b > a && passes(e, step, a, b, {...o, minLength: 0, minGrade: segmentMinGrade(seg, o)})) {
+        // seg.always: a known climb shown whatever its grade (e.g. a Climb Portal climb at low difficulty)
+        if (b > a && (seg.always || passes(e, step, a, b, {...o, minLength: 0, minGrade: segmentMinGrade(seg, o)}))) {
             candidates.push({a, b, seg});
         }
     }
@@ -421,6 +422,9 @@ export function detectClimbs(profile, options={}) {
             segment: segment || null,
         };
     }).filter(c => {
+        if (c.segment && c.segment.always) {
+            return true;
+        }
         // Found on the smoothed profile; make sure the shown (unsmoothed) numbers
         // also meet the rules, so a listed climb never shows e.g. 2.9%.
         return c.avgGrade >= (c.segment ? segmentMinGrade(c.segment, o) : o.minGrade) && c.score >= o.minScore &&

@@ -382,3 +382,15 @@ test('duration formatting', () => {
     assert.equal(formatDuration(3725), '1:02:05');
     assert.equal(formatDuration(NaN), '-');
 });
+
+test('an always-shown climb (Climb Portal) covers the whole road whatever its grade', () => {
+    // 3 km at 1.5% (e.g. a portal climb at low difficulty)
+    const {distances, elevations} = makeProfile([[3000, 0.015]]);
+    const profile = buildProfile(distances, elevations);
+    assert.equal(detectClimbs(profile).length, 0);
+    const climbs = detectClimbs(profile, {segments: [{name: 'Eazy Rider', start: 0, end: 3000, always: true}],
+                                          minScore: DETECTION_SCORES.large});
+    assert.equal(climbs.length, 1);
+    assert.equal(climbs[0].segment.name, 'Eazy Rider');
+    near(climbs[0].length, 3000, 20, 'whole road');
+});
