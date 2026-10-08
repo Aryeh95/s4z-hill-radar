@@ -254,10 +254,14 @@ async function buildPortalCourse(state, key) {
     const scale = portalScale(state);
     const base = elevations[0];
     elevations = elevations.map(x => base + (x - base) * scale);
+    // Only a known portal climb road is shown as one whole climb; other portal roads
+    // (e.g. the flat lead-in before the climb) get normal detection.
     const info = portalClimbs[state.roadId];
     const name = info ? info[0] : 'Climb Portal';
-    const segments = [{name, start: distances[0], end: distances[distances.length - 1], always: true}];
-    return {key, mode: 'road', portal: true, scale, name, road, reverse: !!state.reverse,
+    const segments = info ?
+        [{name, start: distances[0], end: distances[distances.length - 1], always: true}] :
+        [];
+    return {key, mode: 'road', portal: true, portalClimb: !!info, scale, name, road, reverse: !!state.reverse,
             distances, elevations, segments};
 }
 
@@ -794,7 +798,9 @@ function render() {
                     climb = null;
                 }
             } else {
-                message = climbs.length ? 'No more climbs' : 'No climbs on this route';
+                message = course.portal && !course.portalClimb ?
+                    'Climb Portal: the climb shows when you reach it' :
+                    climbs.length ? 'No more climbs' : 'No climbs on this route';
             }
         }
     }
