@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Official segments named as a KOM count as climbs down to a 2% average, so gentle KOMs show as one climb with their full length (Titans Grove KOM 2.6 km at 2.2%, Castle KOM, Rooftop KOM) instead of short fragments.
+- New setting **Include gentle climbs (1.5%+)**, off by default: detects climbs averaging 1.5% to 3%, such as the rise out of the desert on Sand and Sequoias.
+
 ## 0.1.1 (2026-10-07)
 
 - Fixed mod ID (`hill-radar`), so settings and window positions are kept when updating, whatever the folder is called.

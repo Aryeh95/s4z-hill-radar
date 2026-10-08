@@ -6,10 +6,12 @@ import {fallbackClimbName} from './names.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText, metersPerMile} from './units.mjs';
 
 const doc = document.documentElement;
+const GENTLE_MIN_GRADE = 0.015;  // "Include gentle climbs": 1.5% instead of 3%
 const svgNS = 'http://www.w3.org/2000/svg';
 
 common.settingsStore.setDefault({
     detection: 'small',
+    gentleClimbs: false,
     units: 'auto',
     approachDistance: 0,
     hideWhenIdle: false,
@@ -372,6 +374,7 @@ function detect() {
     const previewStart = previewIndex != null && climbs[previewIndex] ? climbs[previewIndex].start : null;
     climbs = detectClimbs(profile, {
         minScore: DETECTION_SCORES[settings().detection] || DETECTION_SCORES.small,
+        minGrade: settings().gentleClimbs ? GENTLE_MIN_GRADE : undefined,
         segments: course.segments,
     });
     nameClimbs();
@@ -821,7 +824,7 @@ export async function main() {
     applyAppearance();
     common.settingsStore.addEventListener('changed', ev => {
         const changed = ev.data && ev.data.changed;
-        if (changed && changed.has('detection')) {
+        if (changed && (changed.has('detection') || changed.has('gentleClimbs'))) {
             detect();
         }
         applyAppearance();

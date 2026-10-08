@@ -373,7 +373,21 @@ export function detectClimbs(profile, options={}) {
     if (!profile) {
         return [];
     }
-    const o = {...DEFAULTS, ...options};
+    const o = {...DEFAULTS};
+    for (const [k, v] of Object.entries(options)) {
+        if (v !== undefined) {
+            o[k] = v;
+        }
+    }
+    // Thresholds tuned for the 3% minimum scale down for a lower minimum grade
+    // (e.g. the "Include gentle climbs" setting), so gentle climbs aren't
+    // trimmed away or split at their flatter parts.
+    if (options.trimGrade === undefined) {
+        o.trimGrade = Math.min(DEFAULTS.trimGrade, o.minGrade * 2 / 3);
+    }
+    if (options.flatSplitGrade === undefined) {
+        o.flatSplitGrade = Math.min(DEFAULTS.flatSplitGrade, o.minGrade / 2);
+    }
     const {e, step} = profile;
     const cands = mergeDips(findCandidates(e, step, o), e, step, o);
     let ranges = [];

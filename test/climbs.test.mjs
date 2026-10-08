@@ -312,3 +312,15 @@ test('gentle official KOMs count down to 2%, other gentle segments do not', () =
     const p2 = buildProfile(flat.distances, flat.elevations);
     assert.equal(detectClimbs(p2, {segments: [{name: 'Connector KOM', start: 2000, end: 6000}]}).length, 0);
 });
+
+test('gentle climbs are found only with a lower minimum grade', () => {
+    // Desert drag: 1.8 km at 1.7% between flats
+    const {distances, elevations} = makeProfile([[3000, 0], [1800, 0.017], [3000, 0]]);
+    const profile = buildProfile(distances, elevations);
+    assert.equal(detectClimbs(profile).length, 0);
+    assert.equal(detectClimbs(profile, {minGrade: undefined}).length, 0, 'undefined keeps the default');
+    const gentle = detectClimbs(profile, {minGrade: 0.015});
+    assert.equal(gentle.length, 1);
+    near(gentle[0].length, 1800, 250, 'length');
+    near(gentle[0].avgGrade, 0.017, 0.003, 'grade');
+});

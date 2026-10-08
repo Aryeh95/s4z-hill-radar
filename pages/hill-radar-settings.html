@@ -41,6 +41,10 @@
                         <option value="large">Only large climbs (score 8,000+)</option>
                     </select>
                 </label>
+                <label title="Also detect gentle climbs averaging 1.5% to 3%, such as long drags. Official KOMs count down to 2% either way.">
+                    <key>Include gentle climbs (1.5%+):</key>
+                    <input type="checkbox" name="gentleClimbs"/>
+                </label>
                 <label title="Show the next climb only when it is this close (km or mi, matching your units). 0 always shows the next climb.">
                     <key>Show next climb within:</key>
                     <input type="number" name="approachDistance" min="0" max="100" step="0.5" style="--size: 6"/>

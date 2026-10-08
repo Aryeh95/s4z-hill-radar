@@ -38,6 +38,8 @@ The **Climb detection** setting picks the smallest climbs shown:
 - **Medium and large climbs**: score 3,500 or more
 - **Only large climbs**: score 8,000 or more
 
+**Include gentle climbs** (off by default) lowers the minimum average grade for detected climbs from 3% to 1.5%, so long gentle drags show too (e.g. the 1.9% rise out of the desert before Titans Grove on Sand and Sequoias). It adds about 250 small climbs across all routes, so it is best combined with Medium or Only large if you want fewer.
+
 Climbs continue through dips and short descents, so a climb with a dip in the middle shows as one climb. Flat or gentle run-ups are trimmed off the ends.
 
 Detection works on routes and events (including multi-lap and distance-based events). When riding without a route, it uses the current road only.
@@ -47,6 +49,7 @@ When the route has an official Zwift climb segment (a KOM), that climb uses the 
 ## Settings
 
 - Climb detection: All / Medium and large / Only large
+- Include gentle climbs (1.5%+ instead of 3%)
 - Show next climb within (km or mi; 0 = always)
 - Hide when no climb
 - Upcoming climbs list (0 to 5)
