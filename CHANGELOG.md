@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Official segments named as a KOM count as climbs down to a 2% average, so gentle KOMs show as one climb with their full length (Titans Grove KOM 2.6 km at 2.2%, Castle KOM, Rooftop KOM) instead of short fragments.
+- Official segments named as a KOM count as climbs at any uphill grade, as long as they meet the detection size, so gentle KOMs show as one climb with their full length (Itza KOM 3.75 km at 1.98%, Zwift KOM Reverse, Jarvis KOM, Titans Grove KOM, Castle KOM, Rooftop KOM) instead of short fragments or nothing.
 - Climb Portal: portal climbs are shown as one climb, named (e.g. Ski Lift Climb, Cauberg), with gradients and elevation scaled by your Climb Portal difficulty.
 - Climb Portal: the climb ends at Zwift's finish gate, not on the flat run-out past it, and every portal climb is named, using the data in Sauce 2.3+ (older Sauce: ends at the top). Fixes Col de Sarenne, whose road data starts with a drop.
 - Climb summary: at the top of a climb, shows your time, average power, W/kg, VAM, average and max heart rate, average speed and cadence for a few seconds (setting, on by default, 5–30 s).

@@ -28,7 +28,7 @@ const DEFAULTS = {
     minScore: DETECTION_SCORES.small,
     minLength: 500,         // m
     minGrade: 0.03,         // 3%
-    komMinGrade: 0.02,      // official segments named "KOM" count down to 2%
+    komMinGrade: 0,         // official segments named "KOM" count at any uphill grade (the score still applies)
     step: 20,               // m, resample resolution
     smoothDistance: 100,    // m, moving average window for elevation
     dipGap: 400,            // m, max distance without a new high point before a climb part ends
@@ -361,9 +361,10 @@ function maxGradeOver(e, step, a, b, window=100) {
 // Official climb segments (e.g. Zwift KOM segments): a segment that is a climb
 // by the rules becomes a climb, joined with any detected climbing it overlaps.
 // Official segments don't need the 500 m minimum length (e.g. Innsbruck's Leg
-// Snapper KOM, 422 m at 6.9%), and ones named as a KOM count down to 2% average
-// (e.g. Titans Grove KOM, 2.6 km at 2.2%). Others, such as a whole time-trial
-// course segment, still need 3%. All need the score for the chosen size.
+// Snapper KOM, 422 m at 6.9%), and ones named as a KOM count at any average grade,
+// because Zwift counts them (e.g. Itza KOM, 3.75 km at 1.98%). Others, such as a whole
+// time-trial course segment, still need 3%. All need the score for the chosen size,
+// which also means they have to go uphill.
 function segmentMinGrade(seg, o) {
     return /\bKOM\b/i.test(seg.name || '') ? Math.min(o.komMinGrade, o.minGrade) : o.minGrade;
 }

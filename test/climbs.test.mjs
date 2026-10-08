@@ -296,7 +296,7 @@ test('lead-in climb names are not repeated on later laps', () => {
     assert.equal(fallbackClimbName('Makuri 40', {start: 19000, end: 20400, length: 1400}, laps), null);
 });
 
-test('gentle official KOMs count down to 2%, other gentle segments do not', () => {
+test('gentle official KOMs count at any grade if they meet the score, other gentle segments do not', () => {
     // 2.6 km at 2.2% (Titans Grove style), flat around it
     const {distances, elevations} = makeProfile([[2000, 0], [2600, 0.022], [2000, 0]]);
     const profile = buildProfile(distances, elevations);
@@ -307,10 +307,20 @@ test('gentle official KOMs count down to 2%, other gentle segments do not', () =
     near(kom[0].length, 2600, 1, 'length');
     // Same shape but not named as a KOM (e.g. a whole TT course segment): not a climb
     assert.equal(detectClimbs(profile, {segments: [{name: 'Bologna TT', start: 2000, end: 4600}]}).length, 0);
-    // Under 2% is still not a climb, even as a KOM
+    // A KOM under 2% still counts (Itza KOM style, 4 km at 1.5%: score 6000)
     const flat = makeProfile([[2000, 0], [4000, 0.015], [2000, 0]]);
     const p2 = buildProfile(flat.distances, flat.elevations);
-    assert.equal(detectClimbs(p2, {segments: [{name: 'Connector KOM', start: 2000, end: 6000}]}).length, 0);
+    const itza = detectClimbs(p2, {segments: [{name: 'Itza KOM', start: 2000, end: 6000}]});
+    assert.equal(itza.length, 1);
+    near(itza[0].length, 4000, 1, 'length');
+    // ...but not one below the score for the size (Aqueduc KOM style: 420 m, 4 m up)
+    const tiny = makeProfile([[2000, 0], [420, 0.01], [2000, 0]]);
+    const p3 = buildProfile(tiny.distances, tiny.elevations);
+    assert.equal(detectClimbs(p3, {segments: [{name: 'Aqueduc KOM', start: 2000, end: 2420}]}).length, 0);
+    // ...nor a downhill one
+    const down = makeProfile([[2000, 0], [4000, -0.015], [2000, 0]]);
+    const p4 = buildProfile(down.distances, down.elevations);
+    assert.equal(detectClimbs(p4, {segments: [{name: 'Reverse KOM', start: 2000, end: 6000}]}).length, 0);
 });
 
 test('gentle climbs are found only with a lower minimum grade', () => {
