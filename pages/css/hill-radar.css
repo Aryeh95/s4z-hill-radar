@@ -170,6 +170,25 @@ html:not(.settings-page) body {
     text-anchor: middle;
 }
 
+.profile .segment-flag .pole {
+    stroke: var(--hr-fg);
+    stroke-width: 1.5;
+}
+
+.profile .segment-flag .cloth {
+    fill: var(--hr-fg);
+}
+
+.profile .segment-flag .check-light {
+    fill: var(--hr-bg-solid);
+}
+
+.profile .segment-flag rect,
+.profile .segment-flag polygon {
+    stroke: var(--hr-bg-solid);
+    stroke-width: 0.5;
+}
+
 .profile .summit-label,
 .profile .base-label {
     fill: var(--hr-fg);

@@ -25,6 +25,7 @@ common.settingsStore.setDefault({
     chunkLength: 'auto',
     showGradeLabels: true,
     dimCompleted: true,
+    showSegmentFlags: true,
     fontScale: 1,
     solidBackground: false,
     backgroundColor: '#00ff00',
@@ -592,7 +593,9 @@ function renderProfile(climb, pos, progress, positionUnknown) {
         maxE = Math.max(maxE, e);
     }
     const pad = Math.max(3, (maxE - minE) * 0.08);
-    const top = labelSize * 1.3;
+    const flags = segmentFlags(climb);
+    const flagH = labelSize * 1.6;
+    const top = labelSize * 1.3 + (flags.length ? flagH * 0.9 : 0);
     const bottom = height - 1;
     const x = d => (d - climb.start) / climb.length * width;
     const y = e => bottom - (e - (minE - pad)) / ((maxE + pad) - (minE - pad)) * (bottom - top);
@@ -645,6 +648,9 @@ function renderProfile(climb, pos, progress, positionUnknown) {
             }
         }
     }
+    for (const f of flags) {
+        drawSegmentFlag(svg, f, climb.segment.name, x(f.distance), y(elevationAt(profile, f.distance)), flagH, width);
+    }
     const imperial = isImperial();
     const summit = svgEl('text', {class: 'summit-label', x: width - 2, y: labelSize, 'font-size': labelSize * 0.9}, svg);
     summit.textContent = `▲ ${toText(formatElevation(climb.endElevation, imperial))}`;
@@ -661,6 +667,48 @@ function renderProfile(climb, pos, progress, positionUnknown) {
         t.textContent = positionUnknown ?
             `at ${toText(formatDistance(climb.start, imperial))}` :
             `▶ ${toText(formatDistance(progress.toStart, imperial))}`;
+    }
+}
+
+// Where the climb's official segment (e.g. a KOM) starts or finishes inside the climb,
+// because the climb was found to start earlier or end later than the timed segment.
+function segmentFlags(climb) {
+    const seg = climb.segment;
+    if (!settings().showSegmentFlags || !seg || seg.always) {
+        return [];
+    }
+    const tolerance = Math.max(20, climb.length * 0.01);
+    const flags = [];
+    if (seg.start - climb.start > tolerance && seg.start < climb.end) {
+        flags.push({kind: 'start', distance: seg.start});
+    }
+    if (climb.end - seg.end > tolerance && seg.end > climb.start) {
+        flags.push({kind: 'finish', distance: seg.end});
+    }
+    return flags;
+}
+
+// A flag on the profile line: a pennant for the segment start, checkered for the finish.
+function drawSegmentFlag(svg, flag, name, fx, fy, size, width) {
+    const g = svgEl('g', {class: `segment-flag ${flag.kind}`}, svg);
+    svgEl('title', {}, g).textContent = `${flag.kind === 'start' ? 'Start' : 'Finish'} of ${name}`;
+    const poleTop = fy - size;
+    svgEl('line', {class: 'pole', x1: fx, x2: fx, y1: fy, y2: poleTop}, g);
+    const w = size * 0.75;
+    const h = size * 0.5;
+    const dir = fx + w + 2 > width ? -1 : 1;  // keep the flag inside the window
+    if (flag.kind === 'start') {
+        svgEl('polygon', {class: 'cloth', points: `${fx},${poleTop} ${fx + dir * w},${poleTop + h / 2} ${fx},${poleTop + h}`}, g);
+    } else {
+        const cols = 3;
+        const rows = 2;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const cx = dir > 0 ? fx + c * w / cols : fx - (c + 1) * w / cols;
+                svgEl('rect', {class: (r + c) % 2 ? 'check-light' : 'cloth', x: cx, y: poleTop + r * h / rows,
+                               width: w / cols, height: h / rows}, g);
+            }
+        }
     }
 }
 
