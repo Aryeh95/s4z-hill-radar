@@ -439,6 +439,6 @@ test('a climb ends at its real top, not past it on the descent (smoothing)', () 
     const climbs = detectClimbs(profile);
     assert.equal(climbs.length, 1);
     near(climbs[0].end, 3500, 20, 'ends at the top');
-    near(climbs[0].endElevation, 60, 0.5, 'top elevation');
+    near(climbs[0].endElevation, 160, 0.5, 'top elevation');
     near(climbs[0].start, 2000, 20, 'starts at the bottom');
 });

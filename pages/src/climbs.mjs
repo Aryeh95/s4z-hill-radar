@@ -409,19 +409,20 @@ function applySegments(ranges, segments, profile, o) {
 // Climbs are found on smoothed elevation, which blurs the top and bottom, so a climb can
 // end a few tens of metres past the real top (showing a little descent at the end) or
 // start before the real bottom. Move each end to the real (unsmoothed) top and bottom when
-// they're within `snapDistance`, but never inside an official segment.
+// they're within `snapDistance`, but never inside an official segment. Whether it's long
+// enough to count is still decided on the length as detected.
 function snapToSummit(profile, [a, b, segment], o) {
     const {raw, step} = profile;
     const reach = Math.round(o.snapDistance / step);
     let top = b;
     for (let i = b - 1; i >= Math.max(a + 1, b - reach); i--) {
-        if (raw[i] > raw[top]) {
+        if (raw[i] >= raw[top]) {  // first point at the top, not on a flat summit
             top = i;
         }
     }
     let bottom = a;
     for (let i = a + 1; i <= Math.min(top - 1, a + reach); i++) {
-        if (raw[i] < raw[bottom]) {
+        if (raw[i] <= raw[bottom]) {  // last point at the bottom, not on the flat before
             bottom = i;
         }
     }
@@ -429,7 +430,7 @@ function snapToSummit(profile, [a, b, segment], o) {
         top = Math.max(top, Math.min(b, Math.round((segment.end - profile.start) / step)));
         bottom = Math.min(bottom, Math.max(a, Math.round((segment.start - profile.start) / step)));
     }
-    return [bottom, top, segment];
+    return [bottom, top, segment, (b - a) * step];
 }
 
 
@@ -469,7 +470,7 @@ export function detectClimbs(profile, options={}) {
     }
     ranges = ranges.map(r => snapToSummit(profile, r, o));
     ranges.sort((x, y) => x[0] - y[0]);
-    return ranges.map(([a, b, segment], index) => {
+    return ranges.map(([a, b, segment, detectedLength], index) => {
         const length = (b - a) * step;
         // Reported numbers use the unsmoothed elevation to match the game.
         const {raw} = profile;
@@ -490,6 +491,7 @@ export function detectClimbs(profile, options={}) {
             startElevation: raw[a],
             endElevation: raw[b],
             segment: segment || null,
+            detectedLength,
         };
     }).filter(c => {
         if (c.segment && c.segment.always) {
@@ -498,7 +500,7 @@ export function detectClimbs(profile, options={}) {
         // Found on the smoothed profile; make sure the shown (unsmoothed) numbers
         // also meet the rules, so a listed climb never shows e.g. 2.9%.
         return c.avgGrade >= (c.segment ? segmentMinGrade(c.segment, o) : o.minGrade) && c.score >= o.minScore &&
-            (c.segment || c.length >= o.minLength);
+            (c.segment || c.detectedLength >= o.minLength);
     }).map((c, index) => ({...c, index}));
 }
 
