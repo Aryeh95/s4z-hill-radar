@@ -431,3 +431,14 @@ test('a Climb Portal climb starts at the bottom even when the road data begins w
     // A small dip after the start (under 50 m) keeps the road start
     assert.equal(portalClimbStart([0, 100, 1000], [10, 0, 80], 1000), 0);
 });
+
+test('a climb ends at its real top, not past it on the descent (smoothing)', () => {
+    // 1.5 km at 4%, then straight down at 4%
+    const {distances, elevations} = makeProfile([[2000, 0], [1500, 0.04], [1000, -0.04], [2000, 0]]);
+    const profile = buildProfile(distances, elevations);
+    const climbs = detectClimbs(profile);
+    assert.equal(climbs.length, 1);
+    near(climbs[0].end, 3500, 20, 'ends at the top');
+    near(climbs[0].endElevation, 60, 0.5, 'top elevation');
+    near(climbs[0].start, 2000, 20, 'starts at the bottom');
+});

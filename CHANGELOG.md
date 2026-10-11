@@ -4,6 +4,8 @@
 
 - New setting **Show segment start/finish**, on by default: when a climb starts earlier or ends later than its official timed segment (e.g. Jarvis KOM, Mont Ventoux, the Radio Tower from the Three Sisters side), flags on the profile show where the segment starts and finishes.
 
+- Climbs end at their real top and start at their real bottom. Before, smoothing could put the end up to 60 m past the top, showing a little descent at the end of the profile (e.g. the climb out of the desert on Sand and Sequoias).
+
 ## 0.2.0 (2026-10-08)
 
 - Official segments named as a KOM count as climbs at any uphill grade, as long as they meet the detection size, so gentle KOMs show as one climb with their full length (Itza KOM 3.75 km at 1.98%, Zwift KOM Reverse, Jarvis KOM, Titans Grove KOM, Castle KOM, Rooftop KOM) instead of short fragments or nothing.

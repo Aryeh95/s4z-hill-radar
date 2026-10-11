@@ -39,6 +39,7 @@ const DEFAULTS = {
     flatSplitRange: 8,      // ...and its height varies less than this (m), so dips are not flats
     trimWindow: 100,        // m, window used to trim flat ends off a climb
     trimGrade: 0.02,        // ends flatter than this (or half the climb's grade) are trimmed
+    snapDistance: 100,      // m, a climb's ends move to the real top/bottom within this distance
 };
 
 
@@ -405,6 +406,33 @@ function applySegments(ranges, segments, profile, o) {
 }
 
 
+// Climbs are found on smoothed elevation, which blurs the top and bottom, so a climb can
+// end a few tens of metres past the real top (showing a little descent at the end) or
+// start before the real bottom. Move each end to the real (unsmoothed) top and bottom when
+// they're within `snapDistance`, but never inside an official segment.
+function snapToSummit(profile, [a, b, segment], o) {
+    const {raw, step} = profile;
+    const reach = Math.round(o.snapDistance / step);
+    let top = b;
+    for (let i = b - 1; i >= Math.max(a + 1, b - reach); i--) {
+        if (raw[i] > raw[top]) {
+            top = i;
+        }
+    }
+    let bottom = a;
+    for (let i = a + 1; i <= Math.min(top - 1, a + reach); i++) {
+        if (raw[i] < raw[bottom]) {
+            bottom = i;
+        }
+    }
+    if (segment) {
+        top = Math.max(top, Math.min(b, Math.round((segment.end - profile.start) / step)));
+        bottom = Math.min(bottom, Math.max(a, Math.round((segment.start - profile.start) / step)));
+    }
+    return [bottom, top, segment];
+}
+
+
 /**
  * Detect climbs in a profile made by buildProfile().
  * options.segments: [{start, end, ...}] official climb segments (e.g. Zwift KOMs) on
@@ -439,6 +467,7 @@ export function detectClimbs(profile, options={}) {
     if (o.segments && o.segments.length) {
         ranges = applySegments(ranges, o.segments, profile, o);
     }
+    ranges = ranges.map(r => snapToSummit(profile, r, o));
     ranges.sort((x, y) => x[0] - y[0]);
     return ranges.map(([a, b, segment], index) => {
         const length = (b - a) * step;
