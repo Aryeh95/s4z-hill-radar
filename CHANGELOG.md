@@ -4,6 +4,7 @@
 
 - New setting **Show segment start/finish**, on by default: when a climb starts earlier or ends later than its official timed segment (e.g. Jarvis KOM, Mont Ventoux, the Radio Tower from the Three Sisters side), flags on the profile show where the segment starts and finishes.
 - Climbs end at their real top and start at their real bottom. Before, smoothing could put the end up to 60 m past the top, showing a little descent at the end of the profile (e.g. the climb out of the desert on Sand and Sequoias).
+- Fixed the position at the start of routes that start on the road they finish on (e.g. Downtown Eruption): before the first route checkpoint Hill Radar could place you at the end of the route and show its last climb (Zwift KOM) as next. It now uses the game's route checkpoint, like Sauce does.
 
 ## 0.2.0 (2026-10-08)
 

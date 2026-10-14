@@ -214,9 +214,20 @@ async function buildRouteCourse(state, key) {
             }
         }
     }
-    const sections = (route.sections || []).filter(x => x.roadCurvePath && !x.weld);
+    // Road sections (index = the route manifest entry), and which section each of the game's
+    // route checkpoints is in, like Sauce uses to place the rider.
+    const sections = (route.sections || []).map((x, index) => ({...x, index}))
+        .filter(x => x.roadCurvePath && !x.weld);
+    const checkpoints = new Map();
+    for (const [i, m] of (route.manifest || []).entries()) {
+        if (m.checkpoints) {
+            for (let idx = m.checkpoints[0]; idx <= m.checkpoints[1]; idx++) {
+                checkpoints.set(idx, i);
+            }
+        }
+    }
     return {key, mode: 'route', routeId, name: route.name, distances, elevations, laps: lapList, segments,
-            sections, lapLength: lapDistances[lapDistances.length - 1]};
+            sections, checkpoints, lapLength: lapDistances[lapDistances.length - 1]};
 }
 
 async function buildRoadCourse(state, key) {
@@ -353,8 +364,25 @@ function routePosition(state) {
             candidates.push({
                 pos: (section.leadin ? 0 : lap.lapStart) + section.blockOffsetDistance + d,
                 leadin: section.leadin,
+                index: section.index,
             });
         }
+    }
+    // The game's route checkpoint says which part of the lap the rider is in: before the
+    // first checkpoint they're at the start (e.g. Downtown Eruption starts on the road it
+    // finishes on); otherwise in the checkpoint's section or one just after it (it can lag).
+    const cpSection = state.routeCheckpointIndex ? course.checkpoints?.get(state.routeCheckpointIndex) : null;
+    if (cpSection != null && candidates.length > 1) {
+        const after = candidates.filter(x => x.index >= cpSection && x.index <= cpSection + 6);
+        if (after.length) {
+            positionSource = 'road match (checkpoint)';
+            return after.reduce((a, b) => b.index < a.index ? b : a).pos;
+        }
+    } else if (!state.routeCheckpointIndex && lapIdx === 0 && course.checkpoints?.size && candidates.length) {
+        positionSource = 'road match (route start)';
+        const first = candidates.reduce((a, b) => b.pos < a.pos ? b : a).pos;
+        // Only the end of the route matched: the rider is just behind the start line
+        return first > lap.distance / 2 ? 0 : first;
     }
     if (candidates.length) {
         positionSource = `road match (${candidates.length})`;
