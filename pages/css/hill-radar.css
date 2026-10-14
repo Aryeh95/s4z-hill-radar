@@ -161,6 +161,19 @@ html:not(.settings-page) body {
     stroke-width: 1.5;
 }
 
+.profile .other-rider {
+    fill: #fff;
+    fill-opacity: 0.9;
+    stroke: #000;
+    stroke-opacity: 0.7;
+    stroke-width: 1;
+}
+
+.profile .other-rider.marked {
+    fill: #ffcc00;
+    fill-opacity: 1;
+}
+
 .profile .grade-label {
     fill: #fff;
     stroke: rgb(0 0 0 / 0.75);

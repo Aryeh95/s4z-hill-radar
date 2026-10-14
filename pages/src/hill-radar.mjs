@@ -26,6 +26,7 @@ common.settingsStore.setDefault({
     showGradeLabels: true,
     dimCompleted: true,
     showSegmentFlags: true,
+    showRiders: false,
     fontScale: 1,
     solidBackground: false,
     backgroundColor: '#00ff00',
@@ -679,6 +680,14 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     for (const f of flags) {
         drawSegmentFlag(svg, f, climb.segment.name, x(f.distance), y(elevationAt(profile, f.distance)), flagH, width);
     }
+    if (s.showRiders && !positionUnknown && pos != null) {
+        for (const r of ridersOnClimb(climb, pos)) {
+            const dot = svgEl('circle', {class: `other-rider${r.marked ? ' marked' : ''}`, cx: x(r.distance),
+                                         cy: y(elevationAt(profile, r.distance)), r: Math.max(2, labelSize * 0.32)}, svg);
+            const gap = toText(formatDistance(Math.abs(r.gap), isImperial()));
+            svgEl('title', {}, dot).textContent = `${r.name ? r.name + ' · ' : ''}${gap} ${r.gap < 0 ? 'ahead' : 'behind'}`;
+        }
+    }
     const imperial = isImperial();
     const summit = svgEl('text', {class: 'summit-label', x: width - 2, y: labelSize, 'font-size': labelSize * 0.9}, svg);
     summit.textContent = `▲ ${toText(formatElevation(climb.endElevation, imperial))}`;
@@ -696,6 +705,46 @@ function renderProfile(climb, pos, progress, positionUnknown) {
             `at ${toText(formatDistance(climb.start, imperial))}` :
             `▶ ${toText(formatDistance(progress.toStart, imperial))}`;
     }
+}
+
+// ---------- Other riders ----------
+
+let nearby = {time: 0, riders: []};
+let nearbySubscribed = false;
+
+function updateNearbySubscription() {
+    if (settings().showRiders && !nearbySubscribed) {
+        nearbySubscribed = true;
+        common.subscribe('nearby', data => {
+            nearby = {time: Date.now(), riders: Array.isArray(data) ? data : []};
+        });
+    }
+}
+
+// Nearby riders on this climb, placed by Sauce's distance gap to the watched rider
+// (negative = ahead), so they're on the same distance scale as the course.
+function ridersOnClimb(climb, pos) {
+    if (Date.now() - nearby.time > 5000) {
+        return [];
+    }
+    const riders = [];
+    for (const ad of nearby.riders) {
+        if (!ad || ad.watching || !Number.isFinite(ad.gapDistance)) {
+            continue;
+        }
+        const distance = pos - ad.gapDistance;
+        if (distance >= climb.start && distance <= climb.end) {
+            const athlete = ad.athlete || {};
+            riders.push({
+                distance,
+                gap: ad.gapDistance,
+                name: athlete.sanitizedFullname || athlete.fullname || null,
+                marked: !!(athlete.marked || athlete.following),
+            });
+        }
+    }
+    // Marked and followed riders on top
+    return riders.sort((a, b) => a.marked - b.marked);
 }
 
 // Where the climb's official segment (e.g. a KOM) starts or finishes inside the climb,
@@ -1087,6 +1136,7 @@ export async function main() {
         if (changed && (changed.has('detection') || changed.has('gentleClimbs'))) {
             detect();
         }
+        updateNearbySubscription();
         applyAppearance();
         render();
     });
@@ -1118,6 +1168,7 @@ export async function main() {
         render();
     });
     common.subscribe('athlete/watching', onWatching);
+    updateNearbySubscription();
     render();
 }
 
