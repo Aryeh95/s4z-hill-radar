@@ -6,7 +6,7 @@
 - Climbs end at their real top and start at their real bottom. Before, smoothing could put the end up to 60 m past the top, showing a little descent at the end of the profile (e.g. the climb out of the desert on Sand and Sequoias).
 - Fixed the position at the start of routes that start on the road they finish on (e.g. Downtown Eruption): before the first route checkpoint Hill Radar could place you at the end of the route and show its last climb (Zwift KOM) as next. It now uses the game's route checkpoint, like Sauce does.
 - New setting **Show other riders**, off by default: dots on the climb profile for nearby riders, placed by Sauce's gap to you, with marked and followed riders in yellow. Hover a dot for the rider's name and gap.
-- New setting **Live climb stats**, off by default: while climbing, a second row shows the climb so far, with four stats of your choice (time, average power, W/kg, average or max heart rate, VAM, average speed, cadence).
+- New setting **Live climb stats**, off by default: while climbing, a second row shows the climb so far, with four stats of your choice (time, average power, average W/kg, average or max heart rate, VAM, average speed, cadence).
 
 ## 0.2.0 (2026-10-08)
 

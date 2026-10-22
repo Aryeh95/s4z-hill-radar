@@ -1108,7 +1108,7 @@ function effortStat(key, x, imperial) {
     switch (key) {
         case 'time': return ['Time', formatDuration(x.time)];
         case 'avgPower': return ['Avg power', n(x.avgPower, 0, 'w')];
-        case 'wkg': return ['W/kg', missing(x.wkg) ? '-' : x.wkg.toFixed(1)];
+        case 'wkg': return ['Avg W/kg', missing(x.wkg) ? '-' : x.wkg.toFixed(1)];
         case 'vam': return ['VAM', missing(x.vam) ? '-' : imperial ?
             {value: Math.round(x.vam * 3.28084).toString(), unit: 'ft/h'} : n(x.vam, 0, 'm/h')];
         case 'avgHR': return ['Avg HR', n(x.avgHR, 0, 'bpm')];
