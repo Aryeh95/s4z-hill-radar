@@ -35,6 +35,14 @@ common.settingsStore.setDefault({
     showDebug: false,
     climbSummary: true,
     summarySeconds: 12,
+    summaryStat1: 'time',
+    summaryStat2: 'avgPower',
+    summaryStat3: 'wkg',
+    summaryStat4: 'vam',
+    summaryStat5: 'avgHR',
+    summaryStat6: 'maxHR',
+    summaryStat7: 'avgSpeed',
+    summaryStat8: 'avgCadence',
     liveStats: false,
     liveStat1: 'time',
     liveStat2: 'avgPower',
@@ -1194,6 +1202,7 @@ function finishEffort(e) {
 
 function setSummaryStat(el, i, label, f) {
     const cell = el.querySelector(`.stat[data-sstat="${i}"]`);
+    cell.hidden = !label;  // slot turned off
     cell.querySelector('.label').textContent = label;
     cell.querySelector('.num').textContent = typeof f === 'string' ? f : f.value;
     cell.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
@@ -1227,8 +1236,9 @@ function renderSummary(el, x) {
     el.querySelector('.climb-meta').textContent =
         `${toText(formatDistance(x.distance, imperial))} · ${toText(formatGrade(c.avgGrade))}` +
         (x.partial ? ' · partial' : '');
-    for (const [i, key] of SUMMARY_STATS.entries()) {
-        setSummaryStat(el, i, ...effortStat(key, x, imperial));
+    const s = settings();
+    for (const [i, fallback] of SUMMARY_STATS.entries()) {
+        setSummaryStat(el, i, ...effortStat(s[`summaryStat${i + 1}`] || fallback, x, imperial));
     }
 }
 

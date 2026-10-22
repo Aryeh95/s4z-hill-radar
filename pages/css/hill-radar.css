@@ -439,6 +439,10 @@ html:not(.settings-page) body {
     font-weight: 700;
 }
 
+.stat[hidden] {
+    display: none;
+}
+
 .summary-stats {
     grid-template-rows: auto auto;
     row-gap: 0.4em;

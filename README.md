@@ -54,7 +54,7 @@ When the route has an official Zwift climb segment (a KOM), that climb uses the 
 - Climb detection: All / Medium and large / Only large
 - Include gentle climbs (1.5%+ instead of 3%)
 - Show next climb within (km or mi; 0 = always)
-- Climb summary at the top, and how long it shows (5–30 seconds)
+- Climb summary at the top, how long it shows (5–30 seconds) and which stats it shows (up to eight)
 - Live climb stats while climbing: a second row with four stats of your choice for the climb so far (time, average power, average W/kg, average/max heart rate, VAM, average speed, cadence)
 - Show other riders on the climb profile; official segment start/finish flags
 - Hide when no climb
