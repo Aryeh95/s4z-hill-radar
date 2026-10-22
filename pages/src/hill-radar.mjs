@@ -431,7 +431,11 @@ function coursePosition(state) {
         }
         return null;
     }
-    // Road mode (no route): same approach as Sauce's own elevation profile.
+    return roadCoursePosition(state);
+}
+
+// Road mode (no route): same approach as Sauce's own elevation profile.
+function roadCoursePosition(state) {
     if (state.roadId !== course.road.id || !!state.reverse !== course.reverse ||
         !course.road.curvePath || typeof course.road.curvePath.roadPercentToOffset !== 'function') {
         return null;
@@ -745,38 +749,98 @@ function drawHover() {
 
 // ---------- Other riders ----------
 
-let nearby = {time: 0, riders: []};
-let nearbySubscribed = false;
+// Every rider's latest road position (Sauce's 'states' feed, which only sends riders whose
+// state changed, so it's collected here), and the nearby list for names and Sauce's gaps.
+const riderStates = new Map();  // athleteId -> {state, time}
+let nearby = {time: 0, byId: new Map()};
+let ridersSubscribed = false;
 
 function updateNearbySubscription() {
-    if (settings().showRiders && !nearbySubscribed) {
-        nearbySubscribed = true;
+    if (settings().showRiders && !ridersSubscribed) {
+        ridersSubscribed = true;
+        common.subscribe('states', data => {
+            const now = Date.now();
+            for (const st of Array.isArray(data) ? data : []) {
+                if (st && st.athleteId != null) {
+                    riderStates.set(st.athleteId, {state: st, time: now});
+                }
+            }
+        });
         common.subscribe('nearby', data => {
-            nearby = {time: Date.now(), riders: Array.isArray(data) ? data : []};
+            const byId = new Map();
+            for (const ad of Array.isArray(data) ? data : []) {
+                if (ad && ad.athleteId != null) {
+                    byId.set(ad.athleteId, ad);
+                }
+            }
+            nearby = {time: Date.now(), byId};
         });
     }
 }
 
-// Nearby riders on this climb, placed by Sauce's distance gap to the watched rider
-// (negative = ahead), so they're on the same distance scale as the course.
-function ridersOnClimb(climb, pos) {
-    if (Date.now() - nearby.time > 5000) {
-        return [];
+// Another rider's position on the course from their own road position, the same way as the
+// watched rider's. Where the route uses their road more than once (laps, shared roads), the
+// match nearest `ref` (where Sauce's gap puts them, else the watched rider) is used.
+function otherRiderPosition(state, ref) {
+    if (course.mode !== 'route') {
+        return roadCoursePosition(state);
     }
+    let best = null;
+    for (const [i, lap] of course.laps.entries()) {
+        for (const section of course.sections) {
+            if (section.leadin && i > 0) {
+                continue;
+            }
+            const d = sectionDistance(section, state);
+            if (d != null && Number.isFinite(d)) {
+                const p = (section.leadin ? 0 : lap.lapStart) + section.blockOffsetDistance + d;
+                if (best == null || Math.abs(p - ref) < Math.abs(best - ref)) {
+                    best = p;
+                }
+            }
+        }
+    }
+    return best;
+}
+
+// Riders on this climb. Placed from their road position, so riders far up the road show
+// too; riders Sauce only has a gap for are placed by the gap (negative = ahead).
+function ridersOnClimb(climb, pos) {
+    const now = Date.now();
+    const nearbyFresh = now - nearby.time < 5000;
     const riders = [];
-    for (const ad of nearby.riders) {
-        if (!ad || ad.watching || !Number.isFinite(ad.gapDistance)) {
+    const placed = new Set();
+    const add = (id, distance, gap, ad) => {
+        if (distance == null || distance < climb.start || distance > climb.end) {
+            return;
+        }
+        const athlete = (ad && ad.athlete) || {};
+        placed.add(id);
+        riders.push({
+            distance,
+            gap,
+            name: athlete.sanitizedFullname || athlete.fullname || null,
+            marked: !!(athlete.marked || athlete.following),
+        });
+    };
+    for (const [id, {state, time}] of riderStates) {
+        if (now - time > 10000) {
+            riderStates.delete(id);  // left the area or stopped sending
             continue;
         }
-        const distance = pos - ad.gapDistance;
-        if (distance >= climb.start && distance <= climb.end) {
-            const athlete = ad.athlete || {};
-            riders.push({
-                distance,
-                gap: ad.gapDistance,
-                name: athlete.sanitizedFullname || athlete.fullname || null,
-                marked: !!(athlete.marked || athlete.following),
-            });
+        if (id === lastAthleteId || (lastState && state.courseId != null && state.courseId !== lastState.courseId)) {
+            continue;
+        }
+        const ad = nearbyFresh ? nearby.byId.get(id) : null;
+        const sauceGap = ad && Number.isFinite(ad.gapDistance) ? ad.gapDistance : null;
+        const distance = otherRiderPosition(state, sauceGap != null ? pos - sauceGap : pos);
+        add(id, distance, distance != null ? pos - distance : null, ad);
+    }
+    if (nearbyFresh) {
+        for (const [id, ad] of nearby.byId) {
+            if (!placed.has(id) && !ad.watching && Number.isFinite(ad.gapDistance) && !riderStates.has(id)) {
+                add(id, pos - ad.gapDistance, ad.gapDistance, ad);
+            }
         }
     }
     // Marked and followed riders on top
