@@ -1223,6 +1223,11 @@ function effortStat(key, x, imperial) {
         case 'avgSpeed': return ['Avg speed', missing(x.avgSpeed) ? '-' : imperial ?
             {value: (x.avgSpeed / 1.609344).toFixed(1), unit: 'mph'} : n(x.avgSpeed, 1, 'kph')];
         case 'avgCadence': return ['Cadence', n(x.avgCadence, 0, 'rpm')];
+        case 'np': return ['NP', n(x.np, 0, 'w')];
+        case 'maxPower': return ['Max power', n(x.maxPower, 0, 'w')];
+        case 'kj': return ['Energy', n(x.kj, 0, 'kJ')];
+        case 'distance': return ['Distance', missing(x.distance) ? '-' : formatDistance(x.distance, imperial)];
+        case 'ascent': return ['Climbed', missing(x.ascent) ? '-' : formatElevation(x.ascent, imperial)];
     }
     return ['', ''];
 }

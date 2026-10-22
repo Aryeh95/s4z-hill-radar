@@ -406,6 +406,31 @@ test('climb effort: live stats while climbing, none before the start or after th
     assert.equal(effort.live(ascentBetween), null, 'finished: the summary takes over');
 });
 
+test('climb effort: Normalized Power, max power and energy', () => {
+    const climb = {start: 0, end: 4000, length: 4000, ascent: 200};
+    // Steady 250 W for 400 s: NP = average
+    const steady = new ClimbEffort(climb);
+    ride(steady, {from: 0, to: 4100, speed: 10, power: 250, hr: 150, cadence: 85});
+    const s = steady.summary();
+    near(s.np, 250, 0.5, 'steady NP');
+    assert.equal(s.maxPower, 250);
+    near(s.kj, 100, 0.5, 'energy kJ (250 W x 400 s)');
+    // On-off: 60 s at 400 W, 60 s at 100 W (average 250): NP well above the average
+    const surges = new ClimbEffort({start: 0, end: 4800, length: 4800, ascent: 240});  // 480 s: four full cycles
+    let done = false;
+    for (let t = 0; !done && t < 1000; t++) {
+        done = surges.add({t: 1000 + t, pos: t * 10, power: Math.floor(t / 60) % 2 ? 100 : 400, weight: 75});
+    }
+    const x = surges.summary();
+    near(x.avgPower, 250, 8, 'on-off average');
+    assert.ok(x.np > x.avgPower + 40, `NP ${x.np.toFixed(0)} above average ${x.avgPower.toFixed(0)}`);
+    assert.equal(x.maxPower, 400);
+    // Under 30 s on the climb: no NP
+    const short = new ClimbEffort({start: 0, end: 200, length: 200, ascent: 10});
+    ride(short, {from: 0, to: 250, speed: 10, power: 300});
+    assert.equal(short.summary().np, null);
+});
+
 test('Barberfish colors: fixed bands, readable text colors', () => {
     // Flat band is -2% to 2%; a new band starts at 2%, 5%, 8%, 11%, 14%, 20%
     assert.equal(gradeColor(-0.019, 'barberfish'), gradeColor(0.019, 'barberfish'));

@@ -2,6 +2,7 @@
 // Pure module (no Sauce imports) so it can be unit tested.
 
 const maxGap = 5;  // s; longer gaps between samples (pauses, lag) count as this long
+const npWindow = 30;  // s, rolling average used for Normalized Power
 
 
 export class ClimbEffort {
@@ -18,6 +19,12 @@ export class ClimbEffort {
         this.hrMax = 0;
         this.cadenceSum = 0;
         this.cadenceTime = 0;
+        this.powerMax = 0;
+        this.npQueue = [];        // recent [dt, power] for the 30 s rolling average
+        this.npQueueTime = 0;
+        this.npQueueSum = 0;
+        this.np4Sum = 0;          // sum of rolling average^4 x time, once 30 s are in
+        this.np4Time = 0;
         this.weight = null;
     }
 
@@ -81,7 +88,22 @@ export class ClimbEffort {
             return;
         }
         this.time += dt;
-        this.powerSum += (sample.power > 0 ? sample.power : 0) * dt;
+        const power = sample.power > 0 ? sample.power : 0;
+        this.powerSum += power * dt;
+        this.powerMax = Math.max(this.powerMax, power);
+        // Normalized Power: 30 s rolling average, raised to the 4th power, averaged, 4th root
+        this.npQueue.push([dt, power]);
+        this.npQueueTime += dt;
+        this.npQueueSum += power * dt;
+        while (this.npQueue.length > 1 && this.npQueueTime - this.npQueue[0][0] >= npWindow) {
+            const [qdt, qp] = this.npQueue.shift();
+            this.npQueueTime -= qdt;
+            this.npQueueSum -= qp * qdt;
+        }
+        if (this.npQueueTime >= npWindow - 1e-6) {
+            this.np4Sum += (this.npQueueSum / this.npQueueTime) ** 4 * dt;
+            this.np4Time += dt;
+        }
         if (sample.hr > 0) {
             this.hrSum += sample.hr * dt;
             this.hrTime += dt;
@@ -134,6 +156,9 @@ export class ClimbEffort {
             distance,
             ascent,
             avgPower,
+            np: this.np4Time ? (this.np4Sum / this.np4Time) ** 0.25 : null,  // needs 30 s on the climb
+            maxPower: this.time ? this.powerMax : null,
+            kj: this.time ? this.powerSum / 1000 : null,
             wkg: avgPower != null && this.weight ? avgPower / this.weight : null,
             avgHR: this.hrTime ? this.hrSum / this.hrTime : null,
             maxHR: this.hrMax || null,
