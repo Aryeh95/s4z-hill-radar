@@ -34,6 +34,11 @@ common.settingsStore.setDefault({
     showDebug: false,
     climbSummary: true,
     summarySeconds: 12,
+    liveStats: false,
+    liveStat1: 'time',
+    liveStat2: 'avgPower',
+    liveStat3: 'wkg',
+    liveStat4: 'avgHR',
 });
 
 const settings = () => common.settingsStore.get();
@@ -1031,6 +1036,7 @@ function render() {
         setStat(2, 'Ascent', formatElevation(climb.ascent, imperial));
         setStat(3, 'Avg grade', formatGrade(climb.avgGrade));
     }
+    renderLiveStats(climbEl, climb, progress, previewing);
     renderProfile(climb, pos, progress, showAt);
 }
 
@@ -1095,6 +1101,27 @@ function setSummaryStat(el, i, label, f) {
     cell.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
 }
 
+// One effort stat (from ClimbEffort summary() or live()): [label, value or {value, unit}]
+function effortStat(key, x, imperial) {
+    const missing = v => v == null || !Number.isFinite(v);
+    const n = (v, digits, unit) => missing(v) ? '-' : {value: v.toFixed(digits), unit};
+    switch (key) {
+        case 'time': return ['Time', formatDuration(x.time)];
+        case 'avgPower': return ['Avg power', n(x.avgPower, 0, 'w')];
+        case 'wkg': return ['W/kg', missing(x.wkg) ? '-' : x.wkg.toFixed(1)];
+        case 'vam': return ['VAM', missing(x.vam) ? '-' : imperial ?
+            {value: Math.round(x.vam * 3.28084).toString(), unit: 'ft/h'} : n(x.vam, 0, 'm/h')];
+        case 'avgHR': return ['Avg HR', n(x.avgHR, 0, 'bpm')];
+        case 'maxHR': return ['Max HR', n(x.maxHR, 0, 'bpm')];
+        case 'avgSpeed': return ['Avg speed', missing(x.avgSpeed) ? '-' : imperial ?
+            {value: (x.avgSpeed / 1.609344).toFixed(1), unit: 'mph'} : n(x.avgSpeed, 1, 'kph')];
+        case 'avgCadence': return ['Cadence', n(x.avgCadence, 0, 'rpm')];
+    }
+    return ['', ''];
+}
+
+const SUMMARY_STATS = ['time', 'avgPower', 'wkg', 'vam', 'avgHR', 'maxHR', 'avgSpeed', 'avgCadence'];
+
 function renderSummary(el, x) {
     const imperial = isImperial();
     const c = x.climb;
@@ -1102,19 +1129,31 @@ function renderSummary(el, x) {
     el.querySelector('.climb-meta').textContent =
         `${toText(formatDistance(x.distance, imperial))} · ${toText(formatGrade(c.avgGrade))}` +
         (x.partial ? ' · partial' : '');
-    const num = v => v == null || !Number.isFinite(v) ? '-' : null;
-    setSummaryStat(el, 0, 'Time', formatDuration(x.time));
-    setSummaryStat(el, 1, 'Avg power', num(x.avgPower) ?? {value: Math.round(x.avgPower).toString(), unit: 'w'});
-    setSummaryStat(el, 2, 'W/kg', num(x.wkg) ?? x.wkg.toFixed(1));
-    setSummaryStat(el, 3, 'VAM', num(x.vam) ?? (imperial ?
-        {value: Math.round(x.vam * 3.28084).toString(), unit: 'ft/h'} :
-        {value: Math.round(x.vam).toString(), unit: 'm/h'}));
-    setSummaryStat(el, 4, 'Avg HR', num(x.avgHR) ?? {value: Math.round(x.avgHR).toString(), unit: 'bpm'});
-    setSummaryStat(el, 5, 'Max HR', num(x.maxHR) ?? {value: Math.round(x.maxHR).toString(), unit: 'bpm'});
-    setSummaryStat(el, 6, 'Avg speed', num(x.avgSpeed) ?? (imperial ?
-        {value: (x.avgSpeed / 1.609344).toFixed(1), unit: 'mph'} :
-        {value: x.avgSpeed.toFixed(1), unit: 'kph'}));
-    setSummaryStat(el, 7, 'Cadence', num(x.avgCadence) ?? {value: Math.round(x.avgCadence).toString(), unit: 'rpm'});
+    for (const [i, key] of SUMMARY_STATS.entries()) {
+        setSummaryStat(el, i, ...effortStat(key, x, imperial));
+    }
+}
+
+// Live stats row while climbing: the climb so far (time, average power...), for the climb shown.
+function renderLiveStats(climbEl, climb, progress, previewing) {
+    const s = settings();
+    const row = climbEl.querySelector('.live-stats');
+    const tracking = effort && climb && Math.abs(effort.climb.start - climb.start) < 1;
+    const x = s.liveStats && !previewing && progress?.state === 'climbing' && tracking ?
+        effort.live((a, b) => ascentAt(profile, b) - ascentAt(profile, a)) : null;
+    row.hidden = !x;
+    if (!x) {
+        return;
+    }
+    const imperial = isImperial();
+    for (let i = 0; i < 4; i++) {
+        const [label, f] = effortStat(s[`liveStat${i + 1}`], x, imperial);
+        const cell = row.querySelector(`.stat[data-lstat="${i}"]`);
+        cell.hidden = !label;
+        cell.querySelector('.label').textContent = label;
+        cell.querySelector('.num').textContent = typeof f === 'string' ? f : f.value;
+        cell.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
+    }
 }
 
 

@@ -387,6 +387,25 @@ test('climb effort: not finished before the top, duplicates ignored', () => {
     near(effort.powerSum / effort.time, 200, 0.01, 'duplicate sample ignored');
 });
 
+test('climb effort: live stats while climbing, none before the start or after the top', () => {
+    const climb = {start: 1000, end: 3000, length: 2000, ascent: 100};
+    const effort = new ClimbEffort(climb);
+    const ascentBetween = (a, b) => 100 * (b - a) / climb.length;
+    effort.add({t: 1000, pos: 900, power: 200});
+    assert.equal(effort.live(ascentBetween), null, 'not on the climb yet');
+    // Halfway up: 1000 m at 5 m/s from the start
+    ride(effort, {from: 1000, to: 2000, speed: 5, power: 300, hr: 160, cadence: 80, t0: 1020});
+    const x = effort.live(ascentBetween);
+    near(x.time, 200, 2, 'time so far');
+    near(x.distance, 1000, 6, 'distance so far');
+    near(x.avgPower, 300, 1, 'avg power so far');
+    near(x.wkg, 4, 0.02, 'w/kg so far');
+    near(x.avgHR, 160, 0.5, 'avg HR so far');
+    near(x.vam, 900, 10, 'VAM so far');
+    ride(effort, {from: 2005, to: 3100, speed: 5, power: 300, hr: 160, cadence: 80, t0: 1221});
+    assert.equal(effort.live(ascentBetween), null, 'finished: the summary takes over');
+});
+
 test('duration formatting', () => {
     assert.equal(formatDuration(65), '1:05');
     assert.equal(formatDuration(3725), '1:02:05');

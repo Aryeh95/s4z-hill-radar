@@ -68,6 +68,62 @@
                     <input type="range" name="summarySeconds" min="5" max="30" step="1" data-depends-on="climbSummary"/>
                     <input type="number" name="summarySeconds" min="5" max="30" step="1" style="--size: 4" data-depends-on="climbSummary"/>
                 </label>
+                <label title="While climbing, show a second row with the climb so far: time on the climb, average power, W/kg, heart rate...">
+                    <key>Live climb stats:</key>
+                    <input type="checkbox" name="liveStats"/>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 1:</key>
+                    <select name="liveStat1" data-depends-on="liveStats">
+                        <option value="time">Time</option>
+                        <option value="avgPower">Avg power</option>
+                        <option value="wkg">W/kg</option>
+                        <option value="avgHR">Avg HR</option>
+                        <option value="maxHR">Max HR</option>
+                        <option value="vam">VAM</option>
+                        <option value="avgSpeed">Avg speed</option>
+                        <option value="avgCadence">Cadence</option>
+                    </select>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 2:</key>
+                    <select name="liveStat2" data-depends-on="liveStats">
+                        <option value="time">Time</option>
+                        <option value="avgPower">Avg power</option>
+                        <option value="wkg">W/kg</option>
+                        <option value="avgHR">Avg HR</option>
+                        <option value="maxHR">Max HR</option>
+                        <option value="vam">VAM</option>
+                        <option value="avgSpeed">Avg speed</option>
+                        <option value="avgCadence">Cadence</option>
+                    </select>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 3:</key>
+                    <select name="liveStat3" data-depends-on="liveStats">
+                        <option value="time">Time</option>
+                        <option value="avgPower">Avg power</option>
+                        <option value="wkg">W/kg</option>
+                        <option value="avgHR">Avg HR</option>
+                        <option value="maxHR">Max HR</option>
+                        <option value="vam">VAM</option>
+                        <option value="avgSpeed">Avg speed</option>
+                        <option value="avgCadence">Cadence</option>
+                    </select>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 4:</key>
+                    <select name="liveStat4" data-depends-on="liveStats">
+                        <option value="time">Time</option>
+                        <option value="avgPower">Avg power</option>
+                        <option value="wkg">W/kg</option>
+                        <option value="avgHR">Avg HR</option>
+                        <option value="maxHR">Max HR</option>
+                        <option value="vam">VAM</option>
+                        <option value="avgSpeed">Avg speed</option>
+                        <option value="avgCadence">Cadence</option>
+                    </select>
+                </label>
 
                 <div class="title">Units</div>
                 <label title="Auto follows the Units setting in Sauce's main settings">

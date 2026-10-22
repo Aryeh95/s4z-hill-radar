@@ -55,6 +55,7 @@ When the route has an official Zwift climb segment (a KOM), that climb uses the 
 - Include gentle climbs (1.5%+ instead of 3%)
 - Show next climb within (km or mi; 0 = always)
 - Climb summary at the top, and how long it shows (5–30 seconds)
+- Live climb stats while climbing: a second row with four stats of your choice for the climb so far (time, average power, W/kg, average/max heart rate, VAM, average speed, cadence)
 - Hide when no climb
 - Upcoming climbs list (0 to 5)
 - Units: Auto (follows Sauce), Metric or Imperial

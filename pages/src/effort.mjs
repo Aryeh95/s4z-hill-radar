@@ -108,9 +108,23 @@ export class ClimbEffort {
         if (this.startTime == null || this.endTime == null) {
             return null;
         }
-        const elapsed = this.endTime - this.startTime;
-        const distance = this.climb.end - this.startPos;
         const ascent = ascentFrom ? ascentFrom(this.startPos) : this.climb.ascent * this.coverage();
+        return this._stats(this.endTime - this.startTime, this.climb.end - this.startPos, ascent);
+    }
+
+    /**
+     * So far, while still on the climb. ascentBetween(a, b) gives the climbing from a to b.
+     */
+    live(ascentBetween) {
+        if (this.startTime == null || !this.last || this.endTime != null) {
+            return null;
+        }
+        const pos = Math.min(this.climb.end, Math.max(this.startPos, this.last.pos));
+        const ascent = ascentBetween ? ascentBetween(this.startPos, pos) : 0;
+        return this._stats(Math.max(0, this.last.t - this.startTime), pos - this.startPos, ascent);
+    }
+
+    _stats(elapsed, distance, ascent) {
         const avgPower = this.time ? this.powerSum / this.time : null;
         return {
             climb: this.climb,
