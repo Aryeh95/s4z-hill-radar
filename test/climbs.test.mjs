@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
         autoChunkLength, portalClimbStart, portalClimbEnd, DETECTION_SCORES} from '../pages/src/climbs.mjs';
-import {gradeColor, SCHEMES} from '../pages/src/colors.mjs';
+import {gradeColor, gradeTextColor, SCHEMES} from '../pages/src/colors.mjs';
 import {routeKey, fallbackClimbName} from '../pages/src/names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
 
@@ -404,6 +404,25 @@ test('climb effort: live stats while climbing, none before the start or after th
     near(x.vam, 900, 10, 'VAM so far');
     ride(effort, {from: 2005, to: 3100, speed: 5, power: 300, hr: 160, cadence: 80, t0: 1221});
     assert.equal(effort.live(ascentBetween), null, 'finished: the summary takes over');
+});
+
+test('Barberfish colors: fixed bands, readable text colors', () => {
+    // Flat band is -2% to 2%; a new band starts at 2%, 5%, 8%, 11%, 14%, 20%
+    assert.equal(gradeColor(-0.019, 'barberfish'), gradeColor(0.019, 'barberfish'));
+    assert.notEqual(gradeColor(0.019, 'barberfish'), gradeColor(0.02, 'barberfish'));
+    assert.equal(gradeColor(0.05, 'barberfish'), gradeColor(0.079, 'barberfish'));
+    assert.notEqual(gradeColor(0.19, 'barberfish'), gradeColor(0.20, 'barberfish'));
+    assert.notEqual(gradeColor(-0.05, 'barberfish'), gradeColor(-0.07, 'barberfish'));
+    // Text colors: the dark purple and navy are lightened to read on a dark background
+    const lightness = c => Number(c.match(/ (\d+)% \//)[1]);
+    assert.ok(lightness(gradeTextColor(0.22, 'barberfish')) > lightness(gradeColor(0.22, 'barberfish')));
+    assert.ok(lightness(gradeTextColor(-0.12, 'barberfish')) > lightness(gradeColor(-0.12, 'barberfish')));
+    for (const {id} of SCHEMES) {
+        for (const g of [-0.1, 0, 0.05, 0.15]) {
+            assert.match(gradeTextColor(g, id), /^hsl\(\d+ \d+% \d+% \/ 1\)$/, `${id} ${g}`);
+            assert.ok(lightness(gradeTextColor(g, id)) >= 50, `${id} ${g} readable`);
+        }
+    }
 });
 
 test('duration formatting', () => {

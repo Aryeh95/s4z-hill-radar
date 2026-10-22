@@ -3,6 +3,8 @@
 // "sauce", "vv", "cvdBuRd", "cvdPRGn" and "cvdSunset" follow the schemes in
 // Zenmaster's S4Z mods (https://github.com/Zenmaster28/Zenmaster-s4z-mods, GPL-3.0).
 // "classic" uses the familiar green / yellow / orange / red / dark red bands.
+// "barberfish" is the grade palette of the Barberfish Karoo extension
+// (https://github.com/jpweytjens/barberfish, Apache-2.0).
 // Grades are fractions (0.05 = 5%).
 
 export const SCHEMES = [
@@ -12,6 +14,7 @@ export const SCHEMES = [
     {id: 'cvdBuRd', label: 'CVD-BuRd'},
     {id: 'cvdPRGn', label: 'CVD-PRGn'},
     {id: 'cvdSunset', label: 'CVD-Sunset'},
+    {id: 'barberfish', label: 'Barberfish'},
 ];
 
 function hsl(h, s, l, a=1) {
@@ -98,6 +101,28 @@ const cvdRanges = {
     ],
 };
 
+// Barberfish: fixed bands (lowest grade of each band, color), from navy descents through a
+// flat green band (-2% to 2%) to purple at 20%+. The text colors are Barberfish's own
+// lighter versions for reading on a dark background.
+const barberfishBands = [
+    [0.20, 0x7404A8, 0xC06FFE],
+    [0.14, 0xD7040A, 0xFE5A5B],
+    [0.11, 0xEA6607, 0xF26A08],
+    [0.08, 0xEC990C, 0xEC990C],
+    [0.05, 0xF5E313, 0xF5E313],
+    [0.02, 0xB2D40F, 0xB2D40F],
+    [-0.02, 0x5CC066, 0x5CC066],
+    [-0.06, 0x3298C4, 0x359FCC],
+    [-0.10, 0x1A74B3, 0x269AEB],
+    [-Infinity, 0x104F89, 0x3397FA],
+];
+
+function barberfishHsl(grade, text) {
+    const band = barberfishBands.find(([min]) => grade >= min - 1e-9);
+    const rgb = band[text ? 2 : 1];
+    return rgbToHsl((rgb >> 16) / 255, ((rgb >> 8) & 0xff) / 255, (rgb & 0xff) / 255);
+}
+
 function interpolateRanges(grade, ranges) {
     const g = Math.min(ranges[ranges.length - 1][0], Math.max(ranges[0][0], grade));
     let i = 0;
@@ -112,26 +137,40 @@ function interpolateRanges(grade, ranges) {
 }
 
 
-/**
- * Returns a CSS color for a grade (fraction) in the given scheme.
- */
-export function gradeColor(grade, scheme='classic', alpha=1) {
+function gradeHsl(grade, scheme, text=false) {
     if (!Number.isFinite(grade)) {
         grade = 0;
     }
     if (scheme === 'sauce') {
         const steep = Math.min(1, Math.abs(grade) / 0.12);
         const c = rgbToHsl(steep, 0.4, 0.5 * steep);
-        return hsl(c.h, c.s + steep - 0.33, c.l - 0.25, alpha);
+        return {h: c.h, s: c.s + steep - 0.33, l: c.l - 0.25};
     } else if (scheme === 'vv') {
         const g = Math.min(0.999, Math.max(-0.999, grade));
         const r = vvRanges.find(x => g >= x.min && g < x.max) || vvRanges[4];
         const f = (g - r.min) / (r.max - r.min);
-        return hsl(r.hMin + f * (r.hMax - r.hMin), r.s, r.l, alpha);
+        return {h: r.hMin + f * (r.hMax - r.hMin), s: r.s, l: r.l};
     } else if (cvdRanges[scheme]) {
-        const c = interpolateRanges(grade, cvdRanges[scheme]);
-        return hsl(c.h, c.s, c.l, alpha);
+        return interpolateRanges(grade, cvdRanges[scheme]);
+    } else if (scheme === 'barberfish') {
+        return barberfishHsl(grade, text);
     }
-    const c = classicColor(grade);
+    return classicColor(grade);
+}
+
+/**
+ * Returns a CSS color for a grade (fraction) in the given scheme.
+ */
+export function gradeColor(grade, scheme='classic', alpha=1) {
+    const c = gradeHsl(grade, scheme);
     return hsl(c.h, c.s, c.l, alpha);
+}
+
+/**
+ * The grade's color for text (e.g. the grade number) on a dark background: the scheme's
+ * color, lightened where it's too dark to read.
+ */
+export function gradeTextColor(grade, scheme='classic') {
+    const c = gradeHsl(grade, scheme, true);
+    return hsl(c.h, Math.min(1, c.s), scheme === 'barberfish' ? c.l : Math.max(0.55, c.l));
 }

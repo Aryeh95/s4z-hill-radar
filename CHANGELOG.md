@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- New gradient color scheme **Barberfish**, the grade colors of the Barberfish Karoo extension: fixed bands from navy descents through flat green (-2% to 2%), yellow, orange and red to purple at 20%+.
+- New setting **Color the grade number**, off by default: while climbing, the current grade is shown in the gradient color scheme's color (lightened where needed to read on a dark background).
+
 ## 0.3.0 (2026-10-22)
 
 - New setting **Live climb stats**, off by default: while climbing, a second row shows the climb so far, with four stats of your choice (time, average power, average W/kg, average or max heart rate, VAM, average speed, cadence).

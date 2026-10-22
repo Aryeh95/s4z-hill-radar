@@ -60,7 +60,8 @@ When the route has an official Zwift climb segment (a KOM), that climb uses the 
 - Hide when no climb
 - Upcoming climbs list (0 to 5)
 - Units: Auto (follows Sauce), Metric or Imperial
-- Gradient color scheme: Classic, Sauce, Veloviewer (ish), CVD-BuRd, CVD-PRGn, CVD-Sunset
+- Gradient color scheme: Classic, Sauce, Veloviewer (ish), CVD-BuRd, CVD-PRGn, CVD-Sunset, Barberfish
+- Color the grade number with the gradient colors
 - Gradient coloring: Smooth (high resolution, colored point by point) or Sections
 - Gradient color opacity, section length, grade labels, dim the completed part
 - Font scaling, theme override, solid background, data background opacity
@@ -93,7 +94,7 @@ npm test
 ## Credits
 
 Gradient color schemes follow those in [Zenmaster's S4Z mods](https://github.com/Zenmaster28/Zenmaster-s4z-mods).
-Names for unofficial climbs come mostly from Brian Mudge's S4Z mods (GPL-3.0); Climb Portal climb names come from Sauce, with Zenmaster's S4Z mods' list as a fallback for older Sauce versions.
+Names for unofficial climbs come mostly from Brian Mudge's S4Z mods (GPL-3.0); Climb Portal climb names come from Sauce, with Zenmaster's S4Z mods' list as a fallback for older Sauce versions. The Barberfish gradient colors come from the [Barberfish](https://github.com/jpweytjens/barberfish) Karoo extension by jpweytjens (Apache-2.0).
 Climb scoring follows the common climb score used by bike computers.
 
 ## License

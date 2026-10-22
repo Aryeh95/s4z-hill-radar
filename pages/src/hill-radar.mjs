@@ -3,7 +3,7 @@ import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChun
         autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbStart, portalClimbEnd,
         DETECTION_SCORES} from './climbs.mjs';
 import {ClimbEffort, formatDuration} from './effort.mjs';
-import {gradeColor} from './colors.mjs';
+import {gradeColor, gradeTextColor} from './colors.mjs';
 import {fallbackClimbName} from './names.mjs';
 import {portalClimbs} from './climb-names.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText, metersPerMile} from './units.mjs';
@@ -27,6 +27,7 @@ common.settingsStore.setDefault({
     dimCompleted: true,
     showSegmentFlags: true,
     showRiders: false,
+    colorGradeNumber: false,
     fontScale: 1,
     solidBackground: false,
     backgroundColor: '#00ff00',
@@ -566,11 +567,12 @@ async function onWatching(ad) {
 
 // ---------- Rendering ----------
 
-function setStat(i, label, f) {
+function setStat(i, label, f, color='') {
     const el = document.querySelector(`.stat[data-stat="${i}"]`);
     el.querySelector('.label').textContent = label;
     el.querySelector('.num').textContent = typeof f === 'string' ? f : f.value;
     el.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
+    el.querySelector('.value').style.color = color;
 }
 
 // Free ride on a lapped route: the course is planned a few laps ahead with no end.
@@ -1118,7 +1120,8 @@ function render() {
     if (progress.state === 'climbing') {
         setStat(0, 'To top', formatDistance(progress.remaining, imperial));
         setStat(1, 'Climb left', formatElevation(progress.remainingAscent, imperial));
-        setStat(2, 'Grade', formatGrade(state.grade));
+        setStat(2, 'Grade', formatGrade(state.grade),
+                s.colorGradeNumber ? gradeTextColor(state.grade, s.colorScheme) : '');
         setStat(3, 'Avg left', formatGrade(progress.remainingGrade));
     } else if (showAt) {
         setStat(0, 'Starts at', formatDistance(climb.start, imperial));
