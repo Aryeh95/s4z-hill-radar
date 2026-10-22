@@ -710,6 +710,37 @@ function renderProfile(climb, pos, progress, positionUnknown) {
             `at ${toText(formatDistance(climb.start, imperial))}` :
             `▶ ${toText(formatDistance(progress.toStart, imperial))}`;
     }
+    const stops = Math.max(2, Math.min(600, Math.round(width / 2)));
+    profileView = {climb, width, bottom, labelSize, y, gradeWindow: Math.max(40, climb.length / stops * 2)};
+    drawHover();
+}
+
+// ---------- Hover: grade at the pointer ----------
+
+let profileView = null;  // how the profile was last drawn, for the hover readout
+let hoverX = null;       // pointer position over the profile (px), or null
+
+function drawHover() {
+    const svg = document.querySelector('.profile svg');
+    svg.querySelector('.hover')?.remove();
+    const v = profileView;
+    if (hoverX == null || !v || !profile) {
+        return;
+    }
+    const px = Math.min(v.width, Math.max(0, hoverX));
+    const d = v.climb.start + px / v.width * v.climb.length;
+    const py = v.y(elevationAt(profile, d));
+    const g = svgEl('g', {class: 'hover'}, svg);
+    svgEl('line', {class: 'hover-line', x1: px, x2: px, y1: py, y2: v.bottom}, g);
+    svgEl('circle', {class: 'hover-dot', cx: px, cy: py, r: Math.max(2.5, v.labelSize * 0.3)}, g);
+    // Grade (same detail as the colors) and how far into the climb, beside the point
+    const left = px > v.width * 0.65;
+    const t = svgEl('text', {class: 'hover-label', x: left ? px - 6 : px + 6,
+                             y: Math.max(v.labelSize * 2.1, py - v.labelSize * 0.5),
+                             'font-size': v.labelSize, 'text-anchor': left ? 'end' : 'start'}, g);
+    const grade = svgEl('tspan', {class: 'hover-grade', 'font-size': v.labelSize * 1.25}, t);
+    grade.textContent = toText(formatGrade(gradeAt(profile, d, v.gradeWindow)));
+    svgEl('tspan', {}, t).textContent = ` · ${toText(formatDistance(d - v.climb.start, isImperial()))}`;
 }
 
 // ---------- Other riders ----------
@@ -1179,7 +1210,16 @@ export async function main() {
         applyAppearance();
         render();
     });
-    new ResizeObserver(() => render()).observe(document.querySelector('.profile'));
+    const profileEl = document.querySelector('.profile');
+    new ResizeObserver(() => render()).observe(profileEl);
+    profileEl.addEventListener('pointermove', ev => {
+        hoverX = ev.clientX - profileEl.getBoundingClientRect().left;
+        drawHover();
+    });
+    profileEl.addEventListener('pointerleave', () => {
+        hoverX = null;
+        drawHover();
+    });
     // Clicking any listed climb previews it. pointerdown on the list itself, so a
     // press is never lost when the rows update.
     for (const list of document.querySelectorAll('.upcoming, .route-list .rows')) {

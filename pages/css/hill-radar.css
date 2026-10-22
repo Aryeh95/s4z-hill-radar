@@ -216,6 +216,30 @@ html:not(.settings-page) body {
     stroke-width: 0.5;
 }
 
+.profile .hover-line {
+    stroke: var(--hr-fg);
+    stroke-width: 1;
+    stroke-dasharray: 2 2;
+    opacity: 0.8;
+}
+
+.profile .hover-dot {
+    fill: var(--hr-fg);
+    stroke: var(--hr-bg-solid);
+    stroke-width: 1;
+}
+
+.profile .hover-label {
+    fill: var(--hr-fg);
+    stroke: var(--hr-bg-solid);
+    stroke-width: 3px;
+    paint-order: stroke;
+}
+
+.profile .hover-grade {
+    font-weight: 700;
+}
+
 .profile .summit-label,
 .profile .base-label {
     fill: var(--hr-fg);
