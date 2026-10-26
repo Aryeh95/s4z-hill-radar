@@ -7,6 +7,7 @@
 - The climb summary's stats are now selectable: eight slots in settings, each any climb stat or off.
 - New climb stats for the summary and the live row: NP (Normalized Power, from 30 s on the climb), max power, energy (kJ), distance and metres climbed.
 - Settings: a preview strip under the gradient color scheme shows the selected scheme from -10% to 20%.
+- Classic color scheme: descents now go from pale blue through blue to deep navy (14%+ down) instead of one blue-grey, so steeper descents stand out.
 
 ## 0.3.0 (2026-10-22)
 

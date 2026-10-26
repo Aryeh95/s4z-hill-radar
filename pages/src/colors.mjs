@@ -44,10 +44,15 @@ function rgbToHsl(r, g, b) {
 }
 
 // Classic: blends from green (flat) through yellow (~4.5%), orange (~7.5%),
-// red (~10.5%) to dark red (14%+). Descents are blue-grey.
+// red (~10.5%) to dark red (14%+). Descents go from pale blue-grey through
+// blue to deep navy (14%+ down), getting darker as they get steeper.
 const classicStops = [
-    [-0.06, 210, 0.3, 0.5],
-    [-0.005, 200, 0.15, 0.55],
+    [-0.14, 240, 0.55, 0.28],
+    [-0.10, 228, 0.6, 0.36],
+    [-0.07, 215, 0.65, 0.44],
+    [-0.04, 205, 0.6, 0.5],
+    [-0.02, 198, 0.45, 0.55],
+    [-0.005, 195, 0.2, 0.6],
     [0.0, 125, 0.55, 0.4],
     [0.025, 95, 0.65, 0.42],
     [0.045, 52, 0.95, 0.5],
