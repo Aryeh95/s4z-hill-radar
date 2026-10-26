@@ -1339,4 +1339,34 @@ export async function main() {
 export async function settingsMain() {
     common.initInteractionListeners();
     await common.initSettingsForm('form#options')();
+    const select = document.querySelector('select[name="colorScheme"]');
+    const preview = document.querySelector('.scheme-preview');
+    if (select && preview) {
+        renderSchemePreview(preview, select.value);
+        select.addEventListener('change', () => renderSchemePreview(preview, select.value));
+    }
+}
+
+// A strip of the color scheme from -10% to 20%, with grade marks, under the scheme picker.
+function renderSchemePreview(el, scheme) {
+    const min = -0.10;
+    const max = 0.20;
+    const stops = [];
+    for (let g = min; g <= max + 1e-9; g += 0.0025) {
+        stops.push(`${gradeColor(g, scheme)} ${((g - min) / (max - min) * 100).toFixed(2)}%`);
+    }
+    el.textContent = '';
+    const strip = document.createElement('div');
+    strip.className = 'strip';
+    strip.style.background = `linear-gradient(to right, ${stops.join(', ')})`;
+    el.appendChild(strip);
+    const ticks = document.createElement('div');
+    ticks.className = 'ticks';
+    for (const g of [-0.10, -0.05, 0, 0.05, 0.10, 0.15, 0.20]) {
+        const t = document.createElement('span');
+        t.style.left = `${(g - min) / (max - min) * 100}%`;
+        t.textContent = `${Math.round(g * 100)}%`;
+        ticks.appendChild(t);
+    }
+    el.appendChild(ticks);
 }
