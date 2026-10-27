@@ -8,6 +8,8 @@
 - New climb stats for the summary and the live row: NP (Normalized Power, from 30 s on the climb), max power, energy (kJ), distance and metres climbed.
 - Settings: a preview strip under the gradient color scheme shows the selected scheme from -10% to 20%.
 - Classic color scheme: descents now go from pale blue through blue to deep navy (14%+ down) instead of one blue-grey, so steeper descents stand out.
+- When Sauce doesn't have the route yet (e.g. new routes before Sauce's data is updated), Hill Radar shows the climbs on the road you're on instead of nothing, marked "this road only".
+- Without a route (free riding, or the fallback above), official segments on the road now name the climbs and extend them, as on routes.
 
 ## 0.3.0 (2026-10-22)
 

@@ -99,10 +99,28 @@ function portalScale(state) {
     return Number.isFinite(s) && s > 0 ? s / 100 : 1;
 }
 
+// Routes Sauce doesn't have yet (e.g. new routes on a new map before Sauce's data is
+// updated): course key -> when that was found. Meanwhile the current road is shown.
+const missingRoutes = new Map();
+const missingRouteRetryMs = 10 * 60 * 1000;
+
+function routeMissing(key) {
+    const t = missingRoutes.get(key);
+    return t != null && Date.now() - t < missingRouteRetryMs;
+}
+
 function courseKey(state) {
     if (isPortal(state) && state.roadId != null) {
         return `portal:${state.roadId}:${!!state.reverse}:${Math.round(portalScale(state) * 100)}`;
     }
+    const key = routeCourseKey(state);
+    if (key && routeMissing(key) && state.roadId != null) {
+        return `road:${state.courseId}:${state.roadId}:${!!state.reverse}`;
+    }
+    return key;
+}
+
+function routeCourseKey(state) {
     if (state.eventSubgroupId) {
         return `event:${state.eventSubgroupId}`;
     }
@@ -155,6 +173,7 @@ async function buildRouteCourse(state, key) {
     }
     const route = await common.getRoute(routeId);
     if (!route || !route.distances || !route.elevations) {
+        missingRoutes.set(key, Date.now());
         return null;
     }
     if (!state.eventSubgroupId) {
@@ -260,7 +279,41 @@ async function buildRoadCourse(state, key) {
         distances = distances.reverse().map(x => total - x);
         elevations = elevations.reverse();
     }
-    return {key, mode: 'road', road, reverse: !!state.reverse, distances, elevations, segments: []};
+    const routeKey = routeCourseKey(state);
+    return {key, mode: 'road', road, reverse: !!state.reverse, distances, elevations,
+            segments: await roadSegments(state, road, distances[distances.length - 1]),
+            routeMissing: !!routeKey && routeMissing(routeKey)};
+}
+
+// Official segments (KOMs etc.) on this road in the riding direction, on the course's distance
+// scale, so climbs get their names and full length without a route too.
+async function roadSegments(state, road, total) {
+    const rcp = road.curvePath;
+    if (!common.rpc || typeof common.rpc.getSegmentsForRoad !== 'function' || !rcp ||
+        typeof rcp.distanceAtRoadPercent !== 'function') {
+        return [];
+    }
+    let list;
+    try {
+        list = await common.rpc.getSegmentsForRoad(state.courseId, state.roadId, !!state.reverse);
+    } catch(e) {
+        return [];
+    }
+    const segments = [];
+    for (const x of list || []) {
+        if (!x || !x.name || !Number.isFinite(x.roadStart) || !Number.isFinite(x.roadFinish)) {
+            continue;
+        }
+        let a = rcp.distanceAtRoadPercent(x.roadStart) / 100;
+        let b = rcp.distanceAtRoadPercent(x.roadFinish) / 100;
+        if (state.reverse) {
+            [a, b] = [total - a, total - b];
+        }
+        if (Number.isFinite(a) && Number.isFinite(b) && b > a) {  // skips segments that wrap round a loop
+            segments.push({name: x.name, start: a, end: b});
+        }
+    }
+    return segments;
 }
 
 async function buildPortalCourse(state, key) {
@@ -1038,7 +1091,9 @@ function render() {
     } else if (building && !course) {
         message = 'Loading route...';
     } else if (!course) {
-        message = 'No route or road data';
+        message = routeMissing(routeCourseKey(state)) ?
+            'This route and road aren\u2019t in Sauce yet (waiting for a Sauce update)' :
+            'No route or road data';
     } else {
         pos = coursePosition(state);
         if (pos == null && course.mode === 'route') {
@@ -1064,6 +1119,7 @@ function render() {
             } else {
                 message = course.portal && !course.portalClimb ?
                     'Climb Portal: the climb shows when you reach it' :
+                    course.routeMissing ? 'Route not in Sauce yet: no climbs ahead on this road' :
                     climbs.length ? 'No more climbs' : 'No climbs on this route';
             }
         }
@@ -1122,7 +1178,8 @@ function render() {
     header.querySelector('.climb-meta').textContent =
         (previewing ? 'Preview · ' : '') +
         `${climbNumberText(climb)} · max ${toText(formatGrade(climb.maxGrade, 0))}` +
-        (positionUnknown && !previewing ? ' · position unknown' : '');
+        (positionUnknown && !previewing ? ' · position unknown' : '') +
+        (course.routeMissing ? ' · this road only' : '');
     // "Starts at" (from the route start) when we can't say how far away it is
     const showAt = positionUnknown || (progress.state === 'approaching' && progress.toStart == null);
     if (progress.state === 'climbing') {
@@ -1150,7 +1207,7 @@ function render() {
 
 function trackEffort(state, pos, positionUnknown) {
     if (!state || pos == null || positionUnknown || !climbs.length ||
-        !(course?.mode === 'route' || course?.portal)) {
+        !(course?.mode === 'route' || course?.portal || course?.routeMissing)) {
         return;
     }
     const t = Number.isFinite(state.worldTime) ? state.worldTime / 1000 : Date.now() / 1000;
