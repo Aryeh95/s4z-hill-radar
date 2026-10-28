@@ -8,9 +8,12 @@ A [Sauce for Zwift](https://www.sauce.llc/products/sauce4zwift/) mod that finds 
 - Current grade and the average grade of what is left
 - Before a climb: distance to the start, length, ascent and average grade
 - A list of the next climbs on the route
-- At the top of a climb, a short **climb summary**: time, average power, W/kg, VAM, average and max heart rate, average speed and cadence (marked "partial" if you joined partway up)
-- Climb numbers count every climb since the start of the ride, across laps (e.g. **4/6 · lap 2** in an event, **#5 · lap 3** on a free ride)
+- Official Zwift KOMs and well-known unofficial climbs are named; climbs are numbered across laps (e.g. **4/6 · lap 2** in an event, **#5 · lap 3** on a free ride)
 - A **Route climbs** list (title bar button) of every climb on the route; click any climb there or in the upcoming list to preview it
+- Hover the profile to see the gradient at any point
+- Optional **live climb stats** while climbing, and a **climb summary** at the top (time, power, NP, W/kg, VAM, heart rate and more; you choose which)
+- Optional dots for **other riders** on the climb, and flags where the official segment starts or finishes
+- **Climb Portal** climbs, named and scaled to your difficulty setting
 
 ## Screenshots
 
@@ -41,26 +44,46 @@ The **Climb detection** setting picks the smallest climbs shown:
 
 **Include gentle climbs** (off by default) lowers the minimum average grade for detected climbs from 3% to 1.5%, so long gentle drags show too (e.g. the 1.9% rise out of the desert before Titans Grove on Sand and Sequoias). It adds about 250 small climbs across all routes, so it is best combined with Medium or Only large if you want fewer.
 
-Climbs continue through dips and short descents, so a climb with a dip in the middle shows as one climb. Flat or gentle run-ups are trimmed off the ends.
+Climbs continue through dips and short descents, so a climb with a dip in the middle shows as one climb. Flat or gentle run-ups are trimmed off the ends, and each climb starts at its real bottom and ends at its real top.
 
-Detection works on routes and events (including multi-lap and distance-based events). When riding without a route, it uses the current road only.
+Detection works on routes and events (including multi-lap and distance-based events). When riding without a route, it uses the current road, with the road's official segments for names. The same happens on a new route that Sauce doesn't have yet (Zwift sometimes releases routes before Sauce's data is updated): the climbs on the road you're on are shown, marked "this road only", until Sauce has the route.
 
-**Climb Portal:** the portal climb is shown as one climb with its name (e.g. Ski Lift Climb, Cauberg). The gradients and elevation follow your Climb Portal difficulty setting, the same way Zwift scales them, so at 50% difficulty a 8% climb shows as 4%. Like Zwift, the climb ends at the finish gate, so the flat run-out past it isn't counted. Climb names and finish gates come from Sauce (2.3 or newer).
+### Climb Portal
 
-When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to average at least 3% and meet the detection size (segments Zwift names as a KOM count at any uphill grade, such as Itza KOM at 1.98%, as long as they meet the detection size), so sprints, laps, whole-course segments and very gentle segments are not shown as climbs. Hover the mouse over the climb profile to see the gradient at that point and how far into the climb it is. With **Show other riders** on, riders on the climb appear as dots on the profile (marked and followed riders in yellow), placed from each rider's own road position, so riders far up the road show too. When the climb starts before or ends after the official segment (for example Jarvis KOM, whose climbing starts about 300 m before the timed segment), flags on the profile mark the segment's start (pennant) and finish (checkered); the **Show segment start/finish** setting turns them off. Official segments don't need the 500 m minimum length, so short KOMs such as Innsbruck's Leg Snapper (422 m at 6.9%) are included. Climbs without an official segment are found from the elevation profile. When one of those matches a well-known unofficial climb (for example San Luca on the Bologna Time Trial, or the climbs named in Brian Mudge's S4Z mods), it gets that name; otherwise it is shown as "Climb 1", "Climb 2" and so on.
+The portal climb is shown as one climb with its name (e.g. Ski Lift Climb, Cauberg). The gradients and elevation follow your Climb Portal difficulty setting, the same way Zwift scales them, so at 50% difficulty an 8% climb shows as 4%. Like Zwift, the climb ends at the finish gate, so the flat run-out past it isn't counted. Climb names and finish gates come from Sauce (2.3 or newer).
+
+### Climb names and official segments
+
+When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to average at least 3% and meet the detection size, so sprints, laps, whole-course segments and very gentle segments are not shown as climbs; segments Zwift names as a KOM count at any uphill grade, such as Itza KOM at 1.98%, as long as they meet the detection size. Official segments don't need the 500 m minimum length, so short KOMs such as Innsbruck's Leg Snapper (422 m at 6.9%) are included.
+
+Climbs without an official segment are found from the elevation profile. When one of those matches a well-known unofficial climb (for example San Luca on the Bologna Time Trial, or the climbs named in Brian Mudge's S4Z mods), it gets that name; otherwise it is shown as "Climb 1", "Climb 2" and so on.
+
+## On the profile
+
+- **Gradient on hover:** hover the mouse over the climb profile to see the gradient at that point and how far into the climb it is.
+- **Segment start/finish flags:** when a climb starts before or ends after its official segment (for example Jarvis KOM, whose climbing starts about 300 m before the timed segment), flags mark the segment's start (pennant) and finish (checkered). On by default; **Show segment start/finish** turns them off.
+- **Other riders:** with **Show other riders** on, riders on the climb appear as dots (marked and followed riders in yellow; hover a dot for the name and gap). They're placed from each rider's own road position, so riders further up the road show too.
+
+## Climb stats
+
+- **Climb summary** (on by default): at the top of a climb, your stats for the climb show for a few seconds, marked "partial" if you joined partway up.
+- **Live climb stats** (off by default): while climbing, a second row under the climb numbers shows the climb so far.
+
+You choose the stats: eight slots for the summary and four for the live row, each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off for summary slots.
 
 ## Settings
 
 - Climb detection: All / Medium and large / Only large
 - Include gentle climbs (1.5%+ instead of 3%)
 - Show next climb within (km or mi; 0 = always)
-- Climb summary at the top, how long it shows (5–30 seconds) and which stats it shows (up to eight; including NP, max power, energy, distance and climbed)
-- Live climb stats while climbing: a second row with four stats of your choice for the climb so far (time, average power, average W/kg, average/max heart rate, VAM, average speed, cadence)
-- Show other riders on the climb profile; official segment start/finish flags
+- Climb summary at the top: on/off, how long it shows (5–30 seconds) and its eight stats
+- Live climb stats while climbing: on/off and its four stats
+- Show other riders on the climb profile
+- Show segment start/finish flags
 - Hide when no climb
 - Upcoming climbs list (0 to 5)
 - Units: Auto (follows Sauce), Metric or Imperial
-- Gradient color scheme: Classic, Sauce, Veloviewer (ish), CVD-BuRd, CVD-PRGn, CVD-Sunset, Barberfish
+- Gradient color scheme: Classic, Sauce, Veloviewer (ish), CVD-BuRd, CVD-PRGn, CVD-Sunset, Barberfish, with a preview of the selected scheme
 - Color the grade number with the gradient colors
 - Gradient coloring: Smooth (high resolution, colored point by point) or Sections
 - Gradient color opacity, section length, grade labels, dim the completed part
@@ -93,7 +116,7 @@ npm test
 
 ## Credits
 
-Gradient color schemes follow those in [Zenmaster's S4Z mods](https://github.com/Zenmaster28/Zenmaster-s4z-mods).
+The Sauce, Veloviewer and CVD gradient color schemes follow those in [Zenmaster's S4Z mods](https://github.com/Zenmaster28/Zenmaster-s4z-mods).
 Names for unofficial climbs come mostly from Brian Mudge's S4Z mods (GPL-3.0); Climb Portal climb names come from Sauce, with Zenmaster's S4Z mods' list as a fallback for older Sauce versions. The Barberfish gradient colors come from the [Barberfish](https://github.com/jpweytjens/barberfish) Karoo extension by jpweytjens (Apache-2.0).
 Climb scoring follows the common climb score used by bike computers.
 
