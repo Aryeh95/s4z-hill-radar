@@ -17,11 +17,15 @@ A [Sauce for Zwift](https://www.sauce.llc/products/sauce4zwift/) mod that finds 
 
 ## Screenshots
 
-| Halfway up the Epic KOM | Next climb at the start of The Uber Pretzel | Preview of a later climb |
+| Halfway up the Epic KOM, with live climb stats and other riders | Next climb at the start of The Uber Pretzel | Preview of a later climb |
 | --- | --- | --- |
-| ![Hill Radar on the Epic KOM](docs/screenshots/epic-kom-climbing.png) | ![Hill Radar showing the next climb](docs/screenshots/next-climb.png) | ![Hill Radar previewing Jungle CCW Climb](docs/screenshots/climb-preview.png) |
+| ![Hill Radar on the Epic KOM with live climb stats and other riders](docs/screenshots/climbing-live-stats.png) | ![Hill Radar showing the next climb](docs/screenshots/next-climb.png) | ![Hill Radar previewing Jungle CCW Climb](docs/screenshots/climb-preview.png) |
 
-Shown with Sauce's default theme. Climbing the Epic KOM: distance to the top, climbing left (including the dip near the summit), current grade and the average of what is left, with the part already climbed dimmed. At the start of a route: the next climb and the ones after it. Clicking a climb in the list previews it; the ✕ goes back to live.
+| Jarvis KOM: the timed segment starts at the flag | Barberfish colors, colored grade and the gradient under the mouse | Climb summary at the top |
+| --- | --- | --- |
+| ![Jarvis KOM with the segment start flag](docs/screenshots/segment-flags.png) | ![Epic KOM in the Barberfish colors with the hover readout](docs/screenshots/barberfish-hover.png) | ![Climb summary for Jarvis KOM](docs/screenshots/climb-summary.png) |
+
+Shown with Sauce's default theme. Climbing the Epic KOM: distance to the top, climbing left (including the dip near the summit), current grade and the average of what is left, the climb so far in the live stats row, other riders on the climb (a marked rider in yellow) and the part already climbed dimmed. At the start of a route: the next climb and the ones after it. Clicking a climb in the list previews it; the ✕ goes back to live. Jarvis KOM's climbing starts about 300 m before the timed segment, so a flag marks where the segment starts. Hovering the profile shows the gradient at that point (here -7.6% in the dip near the top). At the top, the summary shows the stats you picked for the climb.
 
 ## Climb detection
 
