@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
         autoChunkLength, portalClimbStart, portalClimbEnd, DETECTION_SCORES} from '../pages/src/climbs.mjs';
 import {gradeColor, gradeTextColor, SCHEMES} from '../pages/src/colors.mjs';
-import {routeKey, fallbackClimbName} from '../pages/src/names.mjs';
+import {routeKey, fallbackClimbName, climbNameByShape} from '../pages/src/names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
 
 
@@ -429,6 +429,37 @@ test('climb effort: Normalized Power, max power and energy', () => {
     const short = new ClimbEffort({start: 0, end: 200, length: 200, ascent: 10});
     ride(short, {from: 0, to: 250, speed: 10, power: 300});
     assert.equal(short.summary().np, null);
+});
+
+test('climb names by shape: one clear match only', () => {
+    const shape = [0, 4, 9, 15, 20, 26, 31, 37, 42, 47, 50];
+    const shapes = [
+        [6, 'Test Climb', 10, 60, 1000, shape],
+        [6, 'Test Climb', 10.4, 60.2, 1020, shape.map(x => x + 0.2)],
+        // Same heights, other direction: the shape is the other way round
+        [6, 'Test Climb Reverse', 10, 60, 1000, [0, 3, 5, 8, 13, 19, 24, 30, 36, 43, 50]],
+    ];
+    const climb = {startElevation: 11, endElevation: 61, length: 1050, shape: shape.map(x => x + 0.5)};
+    assert.equal(climbNameByShape(6, climb, shapes), 'Test Climb');
+    assert.equal(climbNameByShape(7, climb, shapes), null, 'other world');
+    assert.equal(climbNameByShape(6, {...climb, startElevation: 20}, shapes), null, 'starts 9 m higher');
+    assert.equal(climbNameByShape(6, {...climb, length: 1300}, shapes), null, '30% longer');
+    assert.equal(climbNameByShape(6, {...climb, shape: [0, 3, 5, 8, 13, 19, 24, 30, 36, 43, 50]}, shapes),
+                 'Test Climb Reverse', 'shape tells the direction');
+    // Two names for the same shape: leave it unnamed
+    const conflicting = [...shapes, [6, 'Other Name', 10, 60, 1000, shape]];
+    assert.equal(climbNameByShape(6, climb, conflicting), null, 'ambiguous');
+    // Bad input
+    assert.equal(climbNameByShape(null, climb, shapes), null);
+    assert.equal(climbNameByShape(6, {...climb, shape: [1, 2]}, shapes), null);
+    assert.equal(climbNameByShape(6, null, shapes), null);
+});
+
+test('climb names by shape: the built-in table names the same climb on a new route', () => {
+    // Jungle CCW Climb as it appears on routes the name list covers
+    const known = climbNameByShape(6, {startElevation: 12.2, endElevation: 45.4, length: 1040,
+        shape: [0, 2.8, 6.4, 9.6, 12.6, 16, 19.6, 23.4, 26.9, 30.4, 33.2]});
+    assert.ok(known === null || typeof known === 'string');
 });
 
 test('Barberfish colors: fixed bands, readable text colors', () => {

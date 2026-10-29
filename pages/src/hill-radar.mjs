@@ -4,7 +4,7 @@ import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChun
         DETECTION_SCORES} from './climbs.mjs';
 import {ClimbEffort, formatDuration} from './effort.mjs';
 import {gradeColor, gradeTextColor} from './colors.mjs';
-import {fallbackClimbName} from './names.mjs';
+import {fallbackClimbName, climbNameByShape} from './names.mjs';
 import {portalClimbs} from './climb-names.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText, metersPerMile} from './units.mjs';
 
@@ -260,7 +260,8 @@ async function buildRouteCourse(state, key) {
             }
         }
     }
-    return {key, mode: 'route', routeId, name: route.name, distances, elevations, laps: lapList, segments,
+    return {key, mode: 'route', routeId, name: route.name, courseId: route.courseId ?? state.courseId,
+            distances, elevations, laps: lapList, segments,
             sections, checkpoints, lapLength: lapDistances[lapDistances.length - 1]};
 }
 
@@ -280,7 +281,7 @@ async function buildRoadCourse(state, key) {
         elevations = elevations.reverse();
     }
     const routeKey = routeCourseKey(state);
-    return {key, mode: 'road', road, reverse: !!state.reverse, distances, elevations,
+    return {key, mode: 'road', road, reverse: !!state.reverse, courseId: state.courseId, distances, elevations,
             segments: await roadSegments(state, road, distances[distances.length - 1]),
             routeMissing: !!routeKey && routeMissing(routeKey)};
 }
@@ -542,6 +543,15 @@ function nameClimbs() {
         c.name = best ? best.name : null;
         if (!c.name && course.mode === 'route') {
             c.name = fallbackClimbName(course.name, c, course.laps);
+        }
+        if (!c.name && !course.portal) {
+            // Same climb as a named one on another route (by elevation and shape)
+            c.name = climbNameByShape(course.courseId, {
+                startElevation: c.startElevation,
+                endElevation: c.endElevation,
+                length: c.length,
+                shape: Array.from({length: 11}, (_, i) => elevationAt(profile, c.start + c.length * i / 10) - c.startElevation),
+            });
         }
     }
 }

@@ -10,6 +10,8 @@
 - Classic color scheme: descents now go from pale blue through blue to deep navy (14%+ down) instead of one blue-grey, so steeper descents stand out.
 - When Sauce doesn't have the route yet (e.g. new routes before Sauce's data is updated), Hill Radar shows the climbs on the road you're on instead of nothing, marked "this road only".
 - Without a route (free riding, or the fallback above), official segments on the road now name the climbs and extend them, as on routes.
+- Unofficial climbs are now recognised by their shape: a climb that matches a named one from another route (same start and end elevation, length and profile) gets its name on any route, including new routes and the road fallback. For example, the Jungle to Windmill Climb on Four Foalsmen and Pacific Pursuit, the Jungle CCW Climb on Jungle Circuit Reverse Run, and Epic KOM Reverse on Miles of Isles. If two names fit, the climb stays unnamed rather than guessing.
+- New climb name **Epic KOM - Last Kilometer**, for the climb from the dip after The Grade (the Epic KOM bypass) to the Epic KOM finish, on Watt Goes Up Must Come Down, Power to the Tower, Radio Rendezvous, Peak Performance and others.
 
 ## 0.3.0 (2026-10-22)
 

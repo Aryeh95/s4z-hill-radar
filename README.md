@@ -60,7 +60,7 @@ The portal climb is shown as one climb with its name (e.g. Ski Lift Climb, Caube
 
 When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to average at least 3% and meet the detection size, so sprints, laps, whole-course segments and very gentle segments are not shown as climbs; segments Zwift names as a KOM count at any uphill grade, such as Itza KOM at 1.98%, as long as they meet the detection size. Official segments don't need the 500 m minimum length, so short KOMs such as Innsbruck's Leg Snapper (422 m at 6.9%) are included.
 
-Climbs without an official segment are found from the elevation profile. When one of those matches a well-known unofficial climb (for example San Luca on the Bologna Time Trial, or the climbs named in Brian Mudge's S4Z mods), it gets that name; otherwise it is shown as "Climb 1", "Climb 2" and so on.
+Climbs without an official segment are found from the elevation profile. When one of those matches a well-known unofficial climb (for example San Luca on the Bologna Time Trial, or the climbs named in Brian Mudge's S4Z mods), it gets that name. The same climb is also recognised on other routes, including new ones, by its start and end elevation, length and shape, so it keeps its name wherever it's ridden (if two names fit, it stays unnamed). Otherwise it is shown as "Climb 1", "Climb 2" and so on.
 
 ## On the profile
 

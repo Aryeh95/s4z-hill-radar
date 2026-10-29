@@ -1,7 +1,7 @@
 // Fallback names for detected climbs that have no official segment.
 // Pure module (no Sauce imports).
 
-import {brianMudgeClimbs, extraClimbs} from './climb-names.mjs';
+import {brianMudgeClimbs, extraClimbs, climbShapes} from './climb-names.mjs';
 
 /**
  * Normalize a route name so small differences still match, e.g.
@@ -57,4 +57,38 @@ export function fallbackClimbName(routeName, climb, laps) {
         }
     }
     return best;
+}
+
+
+// The same climb looks the same on every route: start and end elevation, length and the shape
+// of the climb (elevation gained at each tenth). Matching that against the named climbs'
+// fingerprints names a climb on routes the name list doesn't cover (e.g. new routes). Only a
+// single clear match counts: two names for the same shape (the same road both ways, or names
+// that differ between routes) leave the climb unnamed rather than guess.
+const shapeTolerance = {elevation: 3, length: 0.10, shape: 1};
+
+/**
+ * climb: {startElevation, endElevation, length, shape: [11 elevations gained, from 0 to the top]}
+ */
+export function climbNameByShape(courseId, climb, shapes=climbShapes) {
+    if (courseId == null || !climb || !Array.isArray(climb.shape) || climb.shape.length !== 11) {
+        return null;
+    }
+    const names = new Set();
+    for (const [course, name, start, end, length, shape] of shapes) {
+        if (course !== courseId ||
+            Math.abs(start - climb.startElevation) > shapeTolerance.elevation ||
+            Math.abs(end - climb.endElevation) > shapeTolerance.elevation ||
+            Math.abs(length - climb.length) / length > shapeTolerance.length) {
+            continue;
+        }
+        let sq = 0;
+        for (let i = 0; i < 11; i++) {
+            sq += (shape[i] - climb.shape[i]) ** 2;
+        }
+        if (Math.sqrt(sq / 11) <= shapeTolerance.shape) {
+            names.add(name);
+        }
+    }
+    return names.size === 1 ? names.values().next().value : null;
 }
