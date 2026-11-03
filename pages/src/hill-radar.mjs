@@ -6,6 +6,7 @@ import {ClimbEffort, formatDuration} from './effort.mjs';
 import {gradeColor, gradeTextColor} from './colors.mjs';
 import {fallbackClimbName, climbNameByShape} from './names.mjs';
 import {portalClimbs} from './climb-names.mjs';
+import {isVideoRoad, videoRoad, videoRoadOffset, videoCourseId} from './video.mjs';
 import {resolveImperial, formatDistance, formatElevation, formatGrade, toText, metersPerMile} from './units.mjs';
 
 const doc = document.documentElement;
@@ -89,8 +90,9 @@ const routeMemoryMs = 120000;
 const routeLapsSupport = new Map();
 
 // Climb Portal: portal roads are numbered from 10000 and live in Sauce's 'portal' road set.
+// Video route roads (course 18) are numbered from 20000 and aren't portal roads.
 function isPortal(state) {
-    return !!state.portal || state.roadId >= 10000;
+    return !!state.portal || (state.roadId >= 10000 && state.courseId !== videoCourseId);
 }
 
 // Climb Portal difficulty as a factor (1 = 100%); it scales the gradient like Sauce does.
@@ -110,6 +112,10 @@ function routeMissing(key) {
 }
 
 function courseKey(state) {
+    // Video routes are one road each; Hill Radar has its own copy of the known ones.
+    if (isVideoRoad(state.courseId, state.roadId)) {
+        return `video:${state.roadId}`;
+    }
     if (isPortal(state) && state.roadId != null) {
         return `portal:${state.roadId}:${!!state.reverse}:${Math.round(portalScale(state) * 100)}`;
     }
@@ -373,7 +379,23 @@ function portalGateDistance(road, total, reverse) {
     return d > total * 0.25 && d <= total + 1 ? Math.min(d, total) : undefined;
 }
 
+// Video route: the whole road, from Hill Radar's copy (video-roads.mjs). Its timed segment
+// (the main climb, where there is one) is named after the route.
+function buildVideoCourse(state, key) {
+    const road = videoRoad(state.roadId);
+    if (!road) {
+        return null;
+    }
+    return {key, mode: 'road', video: true, name: road.name, courseId: videoCourseId, reverse: false,
+            road: {id: road.id, curvePath: {roadPercentToOffset: p => videoRoadOffset(road, p)}},
+            distances: road.distances.slice(), elevations: road.elevations.slice(),
+            segments: road.segments.map(x => ({name: road.name, start: x.start, end: x.end}))};
+}
+
 async function buildCourse(state, key) {
+    if (key.startsWith('video:')) {
+        return buildVideoCourse(state, key);
+    }
     if (key.startsWith('portal:')) {
         return await buildPortalCourse(state, key);
     }
@@ -1079,6 +1101,7 @@ function renderDebug(state, pos, positionUnknown) {
         `progress ${v(st.progress)}`,
         `eventDistance ${v(st.eventDistance)}`,
         `road ${v(st.roadId)}${st.reverse ? ' rev' : ''} @ ${v(st.roadTime)}`,
+        ...(course?.video ? [`video road ${course.road.id}`] : []),
         ...(course?.portal && course.segments.length ? [`portal ${Math.round(course.segments[0].start)}-` +
             `${Math.round(course.segments[0].end)} m (${course.gate ? 'gate' : 'top'})`] : []),
     ].join(' · ');
@@ -1195,8 +1218,10 @@ function render() {
     if (progress.state === 'climbing') {
         setStat(0, 'To top', formatDistance(progress.remaining, imperial));
         setStat(1, 'Climb left', formatElevation(progress.remainingAscent, imperial));
-        setStat(2, 'Grade', formatGrade(state.grade),
-                s.colorGradeNumber ? gradeTextColor(state.grade, s.colorScheme) : '');
+        // Sauce may not have a grade where it has no road data (e.g. video routes): use the profile's
+        const grade = Number.isFinite(state.grade) ? state.grade : gradeAt(profile, pos);
+        setStat(2, 'Grade', formatGrade(grade),
+                s.colorGradeNumber ? gradeTextColor(grade, s.colorScheme) : '');
         setStat(3, 'Avg left', formatGrade(progress.remainingGrade));
     } else if (showAt) {
         setStat(0, 'Starts at', formatDistance(climb.start, imperial));
@@ -1217,7 +1242,7 @@ function render() {
 
 function trackEffort(state, pos, positionUnknown) {
     if (!state || pos == null || positionUnknown || !climbs.length ||
-        !(course?.mode === 'route' || course?.portal || course?.routeMissing)) {
+        !(course?.mode === 'route' || course?.portal || course?.video || course?.routeMissing)) {
         return;
     }
     const t = Number.isFinite(state.worldTime) ? state.worldTime / 1000 : Date.now() / 1000;

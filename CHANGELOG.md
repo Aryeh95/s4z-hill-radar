@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Zwift video routes (Zwift Plus): climbs, live climb stats, the climb summary and other riders work on video routes. Each route is one road; its main climb is named after the route (e.g. Col du Galibier, Lautaret; Sa Calobra) and other climbs are numbered. Hill Radar includes the 21 video routes released so far, so it works before Sauce has their road data, once Sauce shows your data on video routes.
+- The current grade falls back to the profile's grade where Sauce doesn't give one.
+
 ## 0.4.0 (2026-10-29)
 
 - New gradient color scheme **Barberfish**, the grade colors of the Barberfish Karoo extension: fixed bands from navy descents through flat green (-2% to 2%), yellow, orange and red to purple at 20%+.

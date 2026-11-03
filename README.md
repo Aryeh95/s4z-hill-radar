@@ -56,6 +56,10 @@ Detection works on routes and events (including multi-lap and distance-based eve
 
 The portal climb is shown as one climb with its name (e.g. Ski Lift Climb, Cauberg). The gradients and elevation follow your Climb Portal difficulty setting, the same way Zwift scales them, so at 50% difficulty an 8% climb shows as 4%. Like Zwift, the climb ends at the finish gate, so the flat run-out past it isn't counted. Climb names and finish gates come from Sauce (2.3 or newer).
 
+### Video routes
+
+Zwift's video routes (Zwift Plus) work like the Climb Portal: each route is one road, shown with its climbs, live stats and summary as on any route. The main climb's timed segment is named after the route (e.g. Col du Galibier, Lautaret; Sa Calobra); other climbs are numbered. Until Sauce has the video routes' road data, Hill Radar uses its own copy of the routes released so far (`pages/src/video-roads.mjs`); routes Zwift adds later need a Hill Radar update. Needs a Sauce version that shows your data on video routes.
+
 ### Climb names and official segments
 
 When the route has an official Zwift climb segment (a KOM), that climb uses the segment's name and covers at least the segment's official start and end (detected climbing just before or after it is kept). The segment still has to average at least 3% and meet the detection size, so sprints, laps, whole-course segments and very gentle segments are not shown as climbs; segments Zwift names as a KOM count at any uphill grade, such as Itza KOM at 1.98%, as long as they meet the detection size. Official segments don't need the 500 m minimum length, so short KOMs such as Innsbruck's Leg Snapper (422 m at 6.9%) are included.
@@ -117,6 +121,8 @@ The climb detection, colors and unit formatting are plain JavaScript modules in 
 ```
 npm test
 ```
+
+`node scripts/video-roads.mjs` regenerates `pages/src/video-roads.mjs` from Zwift's video route data, for when Zwift adds video routes.
 
 ## Credits
 
