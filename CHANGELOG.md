@@ -7,6 +7,7 @@
 - The climb summary keeps the finished climb's profile under it, in place of the climb's stats, so the window doesn't change size at the top. New setting **with the climb profile** (on by default) under the climb summary; off shows only the summary stats as before.
 - The next climbs stay in the upcoming list while the summary shows (before, the next climb disappeared until the summary closed).
 - **Dim completed part** now dims only the profile you've ridden, not the whole height of the profile area.
+- Your position on the profile is now an arrow just above the line, instead of a dot on the line with a dotted line down, so the gradient color where you are stays visible (suggested by Thorsten Brandt).
 
 ## 0.4.0 (2026-10-29)
 

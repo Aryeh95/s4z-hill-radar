@@ -163,16 +163,11 @@ html:not(.settings-page) body {
     fill-opacity: 0.55;
 }
 
-.profile .rider-line {
-    stroke: var(--hr-fg);
-    stroke-width: 1.5;
-    stroke-dasharray: 3 2;
-}
-
-.profile .rider-dot {
+.profile .rider-marker {
     fill: #fff;
     stroke: #000;
     stroke-width: 1.5;
+    stroke-linejoin: round;
 }
 
 .profile .other-rider {

@@ -805,9 +805,12 @@ function renderProfile(climb, pos, progress, positionUnknown) {
                       `${px.toFixed(1)},${bottom}`, `0,${bottom}`);
             svgEl('polygon', {class: 'completed', points: done.join(' ')}, svg);
         }
-        const py = y(elevationAt(profile, pos));
-        svgEl('line', {class: 'rider-line', x1: px, x2: px, y1: py, y2: bottom}, svg);
-        svgEl('circle', {class: 'rider-dot', cx: px, cy: py, r: Math.max(3, labelSize * 0.4)}, svg);
+        // An arrow just above the line, so the gradient colour where you are stays visible
+        const tip = y(elevationAt(profile, pos)) - Math.max(2, labelSize * 0.3);
+        const w = Math.max(5, labelSize * 0.75);
+        const h = Math.max(7, labelSize * 1.1);
+        const ax = Math.min(width - w, Math.max(w, px));  // whole arrow inside the window at either end
+        svgEl('polygon', {class: 'rider-marker', points: `${ax},${tip} ${ax - w},${tip - h} ${ax + w},${tip - h}`}, svg);
     } else if (progress.state !== 'done') {
         const t = svgEl('text', {class: 'base-label', x: 2, y: labelSize, 'font-size': labelSize * 0.9}, svg);
         t.textContent = positionUnknown ?
