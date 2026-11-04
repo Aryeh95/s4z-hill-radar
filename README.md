@@ -74,7 +74,7 @@ Climbs without an official segment are found from the elevation profile. When on
 
 ## Climb stats
 
-- **Climb summary** (on by default): at the top of a climb, your stats for the climb show for a few seconds, marked "partial" if you joined partway up.
+- **Climb summary** (on by default): at the top of a climb, your stats for the climb show for a few seconds, marked "partial" if you joined partway up. The finished climb's profile stays under the summary (turn off **with the climb profile** for just the stats), and the next climbs stay listed below.
 - **Live climb stats** (off by default): while climbing, a second row under the climb numbers shows the climb so far.
 
 You choose the stats: eight slots for the summary and four for the live row, each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off for summary slots.

@@ -4,6 +4,9 @@
 
 - Zwift video routes (Zwift Plus): climbs, live climb stats, the climb summary and other riders work on video routes. Each route is one road; its main climb is named after the route (e.g. Col du Galibier, Lautaret; Sa Calobra) and other climbs are numbered. Hill Radar includes the 21 video routes released so far, so it works before Sauce has their road data, once Sauce shows your data on video routes.
 - The current grade falls back to the profile's grade where Sauce doesn't give one.
+- The climb summary keeps the finished climb's profile under it, in place of the climb's stats, so the window doesn't change size at the top. New setting **with the climb profile** (on by default) under the climb summary; off shows only the summary stats as before.
+- The next climbs stay in the upcoming list while the summary shows (before, the next climb disappeared until the summary closed).
+- **Dim completed part** now dims only the profile you've ridden, not the whole height of the profile area.
 
 ## 0.4.0 (2026-10-29)
 

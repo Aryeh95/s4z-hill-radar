@@ -36,6 +36,7 @@ common.settingsStore.setDefault({
     showDebug: false,
     climbSummary: true,
     summarySeconds: 12,
+    summaryProfile: true,
     summaryStat1: 'time',
     summaryStat2: 'avgPower',
     summaryStat3: 'wkg',
@@ -798,12 +799,16 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     if (progress.state === 'climbing') {
         const px = x(pos);
         if (s.dimCompleted && px > 0) {
-            svgEl('rect', {class: 'completed', x: 0, y: 0, width: px, height}, svg);
+            // Only the profile itself, up to where you are
+            const done = points.filter(([d]) => d < pos).map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
+            done.push(`${px.toFixed(1)},${y(elevationAt(profile, pos)).toFixed(1)}`,
+                      `${px.toFixed(1)},${bottom}`, `0,${bottom}`);
+            svgEl('polygon', {class: 'completed', points: done.join(' ')}, svg);
         }
         const py = y(elevationAt(profile, pos));
         svgEl('line', {class: 'rider-line', x1: px, x2: px, y1: py, y2: bottom}, svg);
         svgEl('circle', {class: 'rider-dot', cx: px, cy: py, r: Math.max(3, labelSize * 0.4)}, svg);
-    } else {
+    } else if (progress.state !== 'done') {
         const t = svgEl('text', {class: 'base-label', x: 2, y: labelSize, 'font-size': labelSize * 0.9}, svg);
         t.textContent = positionUnknown ?
             `at ${toText(formatDistance(climb.start, imperial))}` :
@@ -1187,21 +1192,30 @@ function render() {
             progress = {state: 'approaching', toStart: known && pos < climb.start ? climb.start - pos : null};
         }
     }
-    climbEl.hidden = !climb || showSummary;
+    // The summary can keep the finished climb's profile under it, in place of the climb's stats
+    const summaryClimb = showSummary && s.summaryProfile !== false ?
+        climbs.find(x => Math.abs(x.start - summary.stats.climb.start) < 1) : null;
+    content.classList.toggle('summary-profile', !!summaryClimb);
+    climbEl.hidden = summaryClimb ? false : !climb || showSummary;
     climbEl.classList.toggle('previewing', previewing);
     climbEl.querySelector('.preview-close').hidden = !previewing;
     idleEl.textContent = climb || showSummary ? '' : message;
     content.classList.toggle('hide-idle', !climb && !showSummary && !!s.hideWhenIdle);
-    // Later climbs
+    // Later climbs. While the summary covers the climb view, the next climb is listed too.
     const upcoming = [];
     const count = Number(s.upcomingCount) || 0;
     if (pos != null && count > 0) {
-        const after = liveClimb ? climbs.filter(x => x.start > liveClimb.end) : climbs.filter(x => x.start > pos);
+        const after = showSummary ? climbs.filter(x => x.end > pos) :
+            liveClimb ? climbs.filter(x => x.start > liveClimb.end) : climbs.filter(x => x.start > pos);
         for (const c of after.slice(0, count)) {
-            upcoming.push({climb: c, toStart: c.start - pos});
+            upcoming.push({climb: c, toStart: Math.max(0, c.start - pos)});
         }
     }
     renderUpcoming(upcoming, positionUnknown);
+    if (summaryClimb) {
+        renderProfile(summaryClimb, pos, {state: 'done'}, positionUnknown);
+        return;
+    }
     if (!climb || showSummary) {
         return;
     }

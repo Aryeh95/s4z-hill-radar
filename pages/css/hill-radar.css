@@ -448,6 +448,24 @@ html:not(.settings-page) body {
     row-gap: 0.4em;
 }
 
+/* Summary with the finished climb's profile: one panel, the profile in place of the climb's stats */
+#content.summary-profile .summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-bottom: 0.2em;
+}
+
+#content.summary-profile .climb {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    padding-top: 0;
+}
+
+#content.summary-profile .climb > .climb-header,
+#content.summary-profile .climb > .stats {
+    display: none;
+}
+
 /* Settings page */
 .settings-page .scheme-preview {
     display: block;

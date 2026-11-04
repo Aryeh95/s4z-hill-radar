@@ -68,6 +68,10 @@
                     <input type="range" name="summarySeconds" min="5" max="30" step="1" data-depends-on="climbSummary"/>
                     <input type="number" name="summarySeconds" min="5" max="30" step="1" style="--size: 4" data-depends-on="climbSummary"/>
                 </label>
+                <label title="Keep the finished climb's profile under the summary; off shows only the summary stats">
+                    <key>&nbsp;&nbsp;- with the climb profile:</key>
+                    <input type="checkbox" name="summaryProfile" data-depends-on="climbSummary"/>
+                </label>
                 <label>
                     <key>&nbsp;&nbsp;- stat 1:</key>
                     <select name="summaryStat1" data-depends-on="climbSummary">
