@@ -1078,6 +1078,16 @@ function preview(index) {
     render();
 }
 
+// Free ride on a lapped route: only the climbs up to the lap being ridden; the next lap's show
+// once it starts. Events show every lap they have.
+function shownClimbs(pos) {
+    if (!isOpenEnded() || pos == null) {
+        return climbs;
+    }
+    const lap = lapOf(pos);
+    return climbs.filter(c => lapOf(c.start) <= lap);
+}
+
 function lapOf(distance) {
     if (!course || !course.laps) {
         return 0;
@@ -1186,7 +1196,7 @@ function render() {
         if (pos == null) {
             message = 'Waiting for position on road...';
         } else {
-            climb = currentOrNextClimb(climbs, pos);
+            climb = currentOrNextClimb(shownClimbs(pos), pos);
             if (climb) {
                 progress = positionUnknown ?
                     {state: 'approaching', toStart: null} :
@@ -1202,7 +1212,8 @@ function render() {
                 message = course.portal && !course.portalClimb ?
                     'Climb Portal: the climb shows when you reach it' :
                     course.routeMissing ? 'Route not in Sauce yet: no climbs ahead on this road' :
-                    climbs.length ? 'No more climbs' : 'No climbs on this route';
+                    !climbs.length ? 'No climbs on this route' :
+                    climbs.some(c => c.start > pos) ? 'No more climbs this lap' : 'No more climbs';
             }
         }
     }
@@ -1249,8 +1260,9 @@ function render() {
     const upcoming = [];
     const count = Number(s.upcomingCount) || 0;
     if (pos != null && count > 0) {
-        const after = showSummary ? climbs.filter(x => x.end > pos) :
-            liveClimb ? climbs.filter(x => x.start > liveClimb.end) : climbs.filter(x => x.start > pos);
+        const shown = shownClimbs(pos);
+        const after = showSummary ? shown.filter(x => x.end > pos) :
+            liveClimb ? shown.filter(x => x.start > liveClimb.end) : shown.filter(x => x.start > pos);
         for (const c of after.slice(0, count)) {
             upcoming.push({climb: c, toStart: Math.max(0, c.start - pos)});
         }

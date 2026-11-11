@@ -8,6 +8,7 @@
 - The next climbs stay in the upcoming list while the summary shows (before, the next climb disappeared until the summary closed).
 - **Dim completed part** now dims only the profile you've ridden, not the whole height of the profile area.
 - Fixed routes where Zwift starts you partway into the route (e.g. Laps, Camera, Traction and other routes from the new Watopia start pens, near the top of a small rise): a climb mostly behind where you start is no longer shown as the current climb with a few metres left; the climbs are numbered from the first one you ride. Only applies at the start of a ride, so routes that start you at the start are unchanged.
+- Free ride on a route with laps: the next lap's climbs now show once that lap starts, instead of being listed ahead while you're still on the current lap; at the end of a lap it says "No more climbs this lap". Events with several laps still show the climbs of every lap.
 - Your position on the profile is now an arrow just above the line, instead of a dot on the line with a dotted line down, so the gradient color where you are stays visible (suggested by Thorsten Brandt).
 
 ## 0.4.0 (2026-10-29)
