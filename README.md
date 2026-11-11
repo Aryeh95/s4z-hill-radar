@@ -58,7 +58,7 @@ The portal climb is shown as one climb with its name (e.g. Ski Lift Climb, Caube
 
 ### Video routes
 
-Zwift's video routes (Zwift Plus) work like the Climb Portal: each route is one road, shown with its climbs, live stats and summary as on any route. The main climb's timed segment is named after the route (e.g. Col du Galibier, Lautaret; Sa Calobra); other climbs are numbered. Until Sauce has the video routes' road data, Hill Radar uses its own copy of the routes released so far (`pages/src/video-roads.mjs`); routes Zwift adds later need a Hill Radar update. Needs a Sauce version that shows your data on video routes.
+Zwift's video routes (Zwift Plus) work like the Climb Portal: each route is one road, shown with its climbs, live stats and summary as on any route. The main climb's timed segment is named after the route (e.g. Col du Galibier, Lautaret; Sa Calobra); other climbs are numbered. Until Sauce has the video routes' road data, Hill Radar uses its own copy of the routes released so far (`pages/src/video-roads.mjs`); routes Zwift adds later need a Hill Radar update. Video routes need Sauce 2.4.0-alpha.7 or newer.
 
 ### Climb names and official segments
 
