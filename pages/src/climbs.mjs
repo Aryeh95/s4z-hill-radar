@@ -506,6 +506,20 @@ export function detectClimbs(profile, options={}) {
 
 
 /**
+ * Climbs the rider will actually ride when the ride starts at `start` on the course, renumbered.
+ * Zwift can put you on a route some way past where its profile starts (e.g. the new Watopia
+ * routes' start pens are near the top of a small rise): a climb mostly behind that point
+ * isn't one you ride.
+ */
+export function climbsFromStart(climbs, start) {
+    if (!(start > 0)) {
+        return climbs;
+    }
+    return climbs.filter(c => c.end - start >= c.length / 2).map((c, index) => ({...c, index}));
+}
+
+
+/**
  * Live numbers for a rider at `distance` relative to a climb.
  */
 export function riderProgress(profile, climb, distance) {

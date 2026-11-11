@@ -1,6 +1,6 @@
 import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
-        autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbStart, portalClimbEnd,
+        autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbStart, portalClimbEnd, climbsFromStart,
         DETECTION_SCORES} from './climbs.mjs';
 import {ClimbEffort, formatDuration} from './effort.mjs';
 import {gradeColor, gradeTextColor} from './colors.mjs';
@@ -588,11 +588,11 @@ function detect() {
     }
     profile = buildProfile(course.distances, course.elevations);
     const previewStart = previewIndex != null && climbs[previewIndex] ? climbs[previewIndex].start : null;
-    climbs = detectClimbs(profile, {
+    climbs = climbsFromStart(detectClimbs(profile, {
         minScore: DETECTION_SCORES[settings().detection] || DETECTION_SCORES.small,
         minGrade: settings().gentleClimbs ? GENTLE_MIN_GRADE : undefined,
         segments: course.segments,
-    });
+    }), rideStart && rideStart.base === baseKey(course.key) ? rideStart.pos : 0);
     nameClimbs();
     if (previewStart != null) {
         const same = climbs.find(c => Math.abs(c.start - previewStart) < 1);
@@ -606,6 +606,12 @@ function baseKey(key) {
 }
 
 let failedBuild = null;   // {key, time}: don't retry a failed load every update
+// Where the ride started on the route ({base, pos}), when Zwift put the rider past the start of
+// the route's profile. Only learned at the start of a ride, so climbs are never renumbered mid-ride.
+let rideStart = null;
+const rideStartCheckMax = 1000;   // m ridden: later than this, it's not the start of the ride
+const rideStartMin = 100;         // m past the profile's start before it counts
+let lastRideDistance = null;
 let lastAthleteId = null;
 let lastBaseKey = null;
 
@@ -622,6 +628,7 @@ async function onWatching(ad) {
         // Watching someone else: forget where the previous rider was
         lastAthleteId = ad.athleteId;
         lastPosition = null;
+        rideStart = null;
         previewIndex = null;
         effort = null;
         summary = null;
@@ -633,6 +640,19 @@ async function onWatching(ad) {
         lastPosition = null;
         previewIndex = null;
         effort = null;
+    }
+    // A new ride (Zwift's ride distance starts again): learn where it starts again
+    if (Number.isFinite(state.distance)) {
+        if (lastRideDistance != null && state.distance < lastRideDistance - 100 && rideStart) {
+            rideStart = null;
+            if (course) {
+                detect();
+            }
+        }
+        lastRideDistance = state.distance;
+    }
+    if (course && course.key === key) {
+        learnRideStart(state);
     }
     const recentlyFailed = failedBuild && failedBuild.key === key && Date.now() - failedBuild.time < 15000;
     if (!key) {
@@ -658,6 +678,27 @@ async function onWatching(ad) {
     render();
 }
 
+
+// At the start of a ride on a route (first lap, little ridden yet), note where the rider is: a
+// climb mostly behind that point is never ridden (see climbsFromStart). Decided once per route.
+function learnRideStart(state) {
+    const base = baseKey(course.key);
+    if (course.mode !== 'route' || (rideStart && rideStart.base === base)) {
+        return;
+    }
+    if ((state.laps || 0) > 0 || !Number.isFinite(state.distance) || state.distance < 0) {
+        return;
+    }
+    const pos = coursePosition(state);
+    if (pos == null || !Number.isFinite(pos)) {
+        return;
+    }
+    const start = state.distance <= rideStartCheckMax ? pos - state.distance : 0;
+    rideStart = {base, pos: start >= rideStartMin ? start : 0};
+    if (rideStart.pos) {
+        detect();
+    }
+}
 
 // ---------- Rendering ----------
 

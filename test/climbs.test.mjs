@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
-        autoChunkLength, portalClimbStart, portalClimbEnd, DETECTION_SCORES} from '../pages/src/climbs.mjs';
+        autoChunkLength, portalClimbStart, portalClimbEnd, climbsFromStart, DETECTION_SCORES} from '../pages/src/climbs.mjs';
 import {gradeColor, gradeTextColor, SCHEMES} from '../pages/src/colors.mjs';
 import {routeKey, fallbackClimbName, climbNameByShape} from '../pages/src/names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
@@ -535,4 +535,21 @@ test('a climb ends at its real top, not past it on the descent (smoothing)', () 
     near(climbs[0].end, 3500, 20, 'ends at the top');
     near(climbs[0].endElevation, 160, 0.5, 'top elevation');
     near(climbs[0].start, 2000, 20, 'starts at the bottom');
+});
+
+test('climbs from the ride start: a climb mostly behind where Zwift starts you is dropped', () => {
+    const climbs = [
+        {start: 100, end: 780, length: 680, index: 0},
+        {start: 9400, end: 10580, length: 1180, index: 1},
+        {start: 11600, end: 13800, length: 2200, index: 2},
+    ];
+    // Spawned at 700 m, near the top of the first rise: it goes, the rest are renumbered
+    const from700 = climbsFromStart(climbs, 700);
+    assert.deepEqual(from700.map(c => [c.start, c.index]), [[9400, 0], [11600, 1]]);
+    // Spawned 200 m up a climb: most of it is still ahead, so it stays
+    assert.equal(climbsFromStart(climbs, 300).length, 3);
+    // Started at the start of the route (or not known): nothing changes
+    assert.equal(climbsFromStart(climbs, 0), climbs);
+    assert.equal(climbsFromStart(climbs, undefined), climbs);
+    assert.equal(climbs[1].index, 1);  // the input is left alone
 });
