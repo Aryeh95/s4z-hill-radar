@@ -100,6 +100,14 @@ export class ClimbEffort {
             this.npQueueTime -= qdt;
             this.npQueueSum -= qp * qdt;
         }
+        // Trim the oldest sample so the window is exactly 30 s (long gaps would stretch it)
+        const extra = this.npQueueTime - npWindow;
+        if (extra > 1e-9 && this.npQueue.length > 1) {
+            const oldest = this.npQueue[0];
+            oldest[0] -= extra;
+            this.npQueueTime -= extra;
+            this.npQueueSum -= oldest[1] * extra;
+        }
         if (this.npQueueTime >= npWindow - 1e-6) {
             this.np4Sum += (this.npQueueSum / this.npQueueTime) ** 4 * dt;
             this.np4Time += dt;
@@ -169,6 +177,22 @@ export class ClimbEffort {
     }
 }
 
+
+/**
+ * Estimated seconds to the top: your pace on the climb so far (`x`: {time, distance, ascent}),
+ * scaled for the grade left. At a steady effort, speed goes with 1 / (grade + c), where c stands
+ * in for rolling resistance and air at climbing speeds. Null until there's enough to go on.
+ */
+export function estimateTimeLeft(x, remaining, remainingGrade, c=0.02) {
+    if (!x || !(x.time >= 20) || !(x.distance >= 100) || !(remaining >= 0) ||
+        !Number.isFinite(remainingGrade)) {
+        return null;
+    }
+    const speed = x.distance / x.time;
+    const gradeDone = Math.max(0, (x.ascent || 0) / x.distance);
+    const speedLeft = speed * (gradeDone + c) / (Math.max(0, remainingGrade) + c);
+    return speedLeft > 0 ? remaining / speedLeft : null;
+}
 
 export function formatDuration(seconds) {
     if (!Number.isFinite(seconds)) {

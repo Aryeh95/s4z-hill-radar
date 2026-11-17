@@ -7,9 +7,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 const source = process.argv[2] || 'https://loveturtle.zwift.com/1.0.1';
-const out = path.join(path.dirname(new URL(import.meta.url).pathname), '../pages/src/video-roads.mjs');
+const out = fileURLToPath(new URL('../pages/src/video-roads.mjs', import.meta.url));
 
 async function get(key) {
     if (/^https?:/.test(source)) {

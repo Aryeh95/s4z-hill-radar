@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- New live climb stat **Est. time to top**: your pace on the climb so far, adjusted for the grade left, so it allows for a steeper (or easier) finish.
+- Live climb stat slots can be turned off; the stats shown share the row.
+- While climbing, hovering the profile shows how far ahead of you (or behind) the point is, instead of the distance from the bottom.
+- The profile's terrain is drawn once per climb and kept; only your position, the dimmed part and other riders are redrawn on each update (less work for Sauce's window).
+- Fixed shape naming for the full Jungle CCW Climb (one route listed it as Jungle Climb, so it was left unnamed on other routes).
+- Turning **Show other riders** off now stops following all riders' positions.
+- NP: the 30 s rolling window stays exactly 30 s when updates arrive unevenly.
+
 ## 0.5.0 (2026-11-11)
 
 - Zwift video routes (Zwift Plus): climbs, live climb stats, the climb summary and other riders work on video routes. Each route is one road; its main climb is named after the route (e.g. Col du Galibier, Lautaret; Sa Calobra) and other climbs are numbered. Hill Radar includes the 21 video routes released so far, so it works before Sauce has their road data. Video routes need Sauce 2.4.0-alpha.7 or newer.

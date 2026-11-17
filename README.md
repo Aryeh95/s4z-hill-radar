@@ -68,7 +68,7 @@ Climbs without an official segment are found from the elevation profile. When on
 
 ## On the profile
 
-- **Gradient on hover:** hover the mouse over the climb profile to see the gradient at that point and how far into the climb it is.
+- **Gradient on hover:** hover the mouse over the climb profile to see the gradient at that point and how far ahead of you it is (while climbing) or how far into the climb.
 - **Segment start/finish flags:** when a climb starts before or ends after its official segment (for example Jarvis KOM, whose climbing starts about 300 m before the timed segment), flags mark the segment's start (pennant) and finish (checkered). On by default; **Show segment start/finish** turns them off.
 - **Other riders:** with **Show other riders** on, riders on the climb appear as dots (marked and followed riders in yellow; hover a dot for the name and gap). They're placed from each rider's own road position, so riders further up the road show too.
 
@@ -77,7 +77,7 @@ Climbs without an official segment are found from the elevation profile. When on
 - **Climb summary** (on by default): at the top of a climb, your stats for the climb show for a few seconds, marked "partial" if you joined partway up. The finished climb's profile stays under the summary (turn off **with the climb profile** for just the stats), and the next climbs stay listed below.
 - **Live climb stats** (off by default): while climbing, a second row under the climb numbers shows the climb so far.
 
-You choose the stats: eight slots for the summary and four for the live row, each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off for summary slots.
+You choose the stats: eight slots for the summary and four for the live row, each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off. The live row also offers **estimated time to the top**: your pace on the climb so far, adjusted for the grade left (slower if it gets steeper, faster if it eases). With slots off, the live stats shown share the row.
 
 ## Settings
 

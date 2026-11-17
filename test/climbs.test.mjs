@@ -4,6 +4,7 @@ import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextCli
         autoChunkLength, portalClimbStart, portalClimbEnd, climbsFromStart, DETECTION_SCORES} from '../pages/src/climbs.mjs';
 import {gradeColor, gradeTextColor, SCHEMES} from '../pages/src/colors.mjs';
 import {routeKey, fallbackClimbName, climbNameByShape} from '../pages/src/names.mjs';
+import {climbShapes} from '../pages/src/climb-names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
 
 
@@ -335,7 +336,7 @@ test('gentle climbs are found only with a lower minimum grade', () => {
     near(gentle[0].avgGrade, 0.017, 0.003, 'grade');
 });
 
-import {ClimbEffort, formatDuration} from '../pages/src/effort.mjs';
+import {ClimbEffort, formatDuration, estimateTimeLeft} from '../pages/src/effort.mjs';
 
 function ride(effort, {from, to, speed, power, hr, cadence, weight=75, t0=1000, step=1}) {
     // speed in m/s; one sample per `step` seconds
@@ -455,11 +456,19 @@ test('climb names by shape: one clear match only', () => {
     assert.equal(climbNameByShape(6, null, shapes), null);
 });
 
-test('climb names by shape: the built-in table names the same climb on a new route', () => {
-    // Jungle CCW Climb as it appears on routes the name list covers
-    const known = climbNameByShape(6, {startElevation: 12.2, endElevation: 45.4, length: 1040,
-        shape: [0, 2.8, 6.4, 9.6, 12.6, 16, 19.6, 23.4, 26.9, 30.4, 33.2]});
-    assert.ok(known === null || typeof known === 'string');
+test('climb names by shape: every built-in fingerprint names its own climb', () => {
+    // The lower part of both Suki climbs is the same road, so that piece is left unnamed on purpose
+    const ambiguous = new Set(['Suki Climb 1', 'Suki Climb 2']);
+    for (const [courseId, name, start, end, length, shape] of climbShapes) {
+        const got = climbNameByShape(courseId, {startElevation: start, endElevation: end, length, shape});
+        if (got === null && ambiguous.has(name) && length <= 500) {
+            continue;
+        }
+        assert.equal(got, name, `${name} (${length} m, ${start} -> ${end} m)`);
+    }
+    // The full Jungle CCW Climb (it was also listed once as Jungle Climb)
+    assert.equal(climbNameByShape(6, {startElevation: 0.5, endElevation: 59.3, length: 2460,
+        shape: [0, 6.6, 13.2, 17.3, 21.1, 27, 35, 43.2, 51, 54.6, 58.8]}), 'Jungle CCW Climb');
 });
 
 test('Barberfish colors: fixed bands, readable text colors', () => {
@@ -552,4 +561,29 @@ test('climbs from the ride start: a climb mostly behind where Zwift starts you i
     assert.equal(climbsFromStart(climbs, 0), climbs);
     assert.equal(climbsFromStart(climbs, undefined), climbs);
     assert.equal(climbs[1].index, 1);  // the input is left alone
+});
+
+test('estimated time to the top: pace so far, scaled for the grade left', () => {
+    // 1 km in 300 s at 5%, 1 km left
+    const x = {time: 300, distance: 1000, ascent: 50};
+    assert.ok(Math.abs(estimateTimeLeft(x, 1000, 0.05) - 300) < 1e-6);           // same grade: same time
+    assert.ok(estimateTimeLeft(x, 1000, 0.10) > 300 * 1.5);                       // steeper: slower
+    assert.ok(estimateTimeLeft(x, 1000, 0.01) < 300 * 0.6);                       // flatter: faster
+    assert.equal(estimateTimeLeft(x, 0, 0.05), 0);                                // at the top
+    // Not enough to go on yet
+    assert.equal(estimateTimeLeft({time: 10, distance: 50, ascent: 2}, 1000, 0.05), null);
+    assert.equal(estimateTimeLeft(null, 1000, 0.05), null);
+    assert.equal(estimateTimeLeft(x, 1000, NaN), null);
+});
+
+test('NP: the rolling window stays 30 s with uneven sample gaps', () => {
+    // 4 s samples alternating 100 w / 300 w: with gaps that don't divide 30 s, the window used
+    // to stretch up to 34 s. The NP of a steady alternation is the same either way, so check the
+    // window itself.
+    const e = new ClimbEffort({start: 0, end: 10000, length: 10000});
+    for (let i = 0; i <= 60; i++) {
+        e.add({t: i * 4, pos: i * 20, power: i % 2 ? 300 : 100});
+    }
+    assert.ok(Math.abs(e.npQueueTime - 30) < 1e-6, `window ${e.npQueueTime}`);
+    assert.ok(e.live().np > 200 && e.live().np < 300);
 });

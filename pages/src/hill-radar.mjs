@@ -2,7 +2,7 @@ import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
         autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbStart, portalClimbEnd, climbsFromStart,
         DETECTION_SCORES} from './climbs.mjs';
-import {ClimbEffort, formatDuration} from './effort.mjs';
+import {ClimbEffort, formatDuration, estimateTimeLeft} from './effort.mjs';
 import {gradeColor, gradeTextColor} from './colors.mjs';
 import {fallbackClimbName, climbNameByShape} from './names.mjs';
 import {portalClimbs} from './climb-names.mjs';
@@ -745,13 +745,69 @@ function svgEl(tag, attrs, parent) {
     return el;
 }
 
+// The climb's terrain: gradient fill, outline, section grades, segment flags and summit height.
+function drawTerrain(g, {climb, points, flags, flagH, labelSize, width, bottom, x, y, chunkLen, opacity, imperial}) {
+    const s = settings();
+    const chunks = climbChunks(profile, climb, chunkLen);
+    if (s.colorMode === 'sections') {
+        for (const c of chunks) {
+            const pts = points.filter(([d]) => d > c.start && d < c.end);
+            pts.unshift([c.start, elevationAt(profile, c.start)]);
+            pts.push([c.end, elevationAt(profile, c.end)]);
+            const poly = pts.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
+            poly.push(`${x(c.end).toFixed(1)},${bottom}`, `${x(c.start).toFixed(1)},${bottom}`);
+            svgEl('polygon', {points: poly.join(' '), fill: gradeColor(c.grade, s.colorScheme, opacity)}, g);
+        }
+        for (const c of chunks.slice(1)) {
+            svgEl('line', {class: 'chunk-sep', x1: x(c.start), x2: x(c.start),
+                           y1: y(elevationAt(profile, c.start)), y2: bottom}, g);
+        }
+    } else {
+        // High resolution: a color stop every couple of pixels from the detailed grade.
+        const defs = svgEl('defs', {}, g);
+        const gradId = 'hr-grade-fill';
+        const grad = svgEl('linearGradient', {id: gradId, gradientUnits: 'userSpaceOnUse',
+                                              x1: 0, y1: 0, x2: width, y2: 0}, defs);
+        const stops = Math.max(2, Math.min(600, Math.round(width / 2)));
+        const gradeWindow = Math.max(40, climb.length / stops * 2);
+        for (let i = 0; i <= stops; i++) {
+            const d = climb.start + climb.length * i / stops;
+            svgEl('stop', {offset: (i / stops).toFixed(4),
+                           'stop-color': gradeColor(gradeAt(profile, d, gradeWindow), s.colorScheme, 1)}, grad);
+        }
+        const poly = points.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
+        poly.push(`${width},${bottom}`, `0,${bottom}`);
+        svgEl('polygon', {points: poly.join(' '), fill: `url(#${gradId})`, 'fill-opacity': opacity}, g);
+    }
+    svgEl('polyline', {
+        class: 'outline',
+        points: points.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`).join(' '),
+    }, g);
+    if (s.showGradeLabels) {
+        for (const c of chunks) {
+            const w = x(c.end) - x(c.start);
+            const pct = Math.round(c.grade * 100);
+            const text = w >= labelSize * 2.6 ? `${pct}%` : w >= labelSize * 1.5 ? `${pct}` : null;
+            if (text) {
+                const t = svgEl('text', {class: 'grade-label', x: x(c.start) + w / 2,
+                                         y: bottom - labelSize * 0.4, 'font-size': labelSize}, g);
+                t.textContent = text;
+            }
+        }
+    }
+    for (const f of flags) {
+        drawSegmentFlag(g, f, climb.segment.name, x(f.distance), y(elevationAt(profile, f.distance)), flagH, width);
+    }
+    const summit = svgEl('text', {class: 'summit-label', x: width - 2, y: labelSize, 'font-size': labelSize * 0.9}, g);
+    summit.textContent = `▲ ${toText(formatElevation(climb.endElevation, imperial))}`;
+}
+
 function renderProfile(climb, pos, progress, positionUnknown) {
     const svg = document.querySelector('.profile svg');
     const box = svg.parentElement.getBoundingClientRect();
     const width = Math.max(10, box.width);
     const height = Math.max(10, box.height);
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    svg.replaceChildren();
     const s = settings();
     const fontPx = parseFloat(getComputedStyle(svg.parentElement).fontSize) || 12;
     const labelSize = fontPx * 0.8;
@@ -775,68 +831,29 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     const x = d => (d - climb.start) / climb.length * width;
     const y = e => bottom - (e - (minE - pad)) / ((maxE + pad) - (minE - pad)) * (bottom - top);
     const chunkLen = s.chunkLength === 'auto' ? autoChunkLength(climb.length) : Number(s.chunkLength) || 250;
-    const chunks = climbChunks(profile, climb, chunkLen);
     const opacity = Number(s.gradientOpacity) || 0.9;
-    if (s.colorMode === 'sections') {
-        for (const c of chunks) {
-            const pts = points.filter(([d]) => d > c.start && d < c.end);
-            pts.unshift([c.start, elevationAt(profile, c.start)]);
-            pts.push([c.end, elevationAt(profile, c.end)]);
-            const poly = pts.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
-            poly.push(`${x(c.end).toFixed(1)},${bottom}`, `${x(c.start).toFixed(1)},${bottom}`);
-            svgEl('polygon', {points: poly.join(' '), fill: gradeColor(c.grade, s.colorScheme, opacity)}, svg);
-        }
-        for (const c of chunks.slice(1)) {
-            svgEl('line', {class: 'chunk-sep', x1: x(c.start), x2: x(c.start),
-                           y1: y(elevationAt(profile, c.start)), y2: bottom}, svg);
-        }
-    } else {
-        // High resolution: a color stop every couple of pixels from the detailed grade.
-        const defs = svgEl('defs', {}, svg);
-        const gradId = 'hr-grade-fill';
-        const grad = svgEl('linearGradient', {id: gradId, gradientUnits: 'userSpaceOnUse',
-                                              x1: 0, y1: 0, x2: width, y2: 0}, defs);
-        const stops = Math.max(2, Math.min(600, Math.round(width / 2)));
-        const gradeWindow = Math.max(40, climb.length / stops * 2);
-        for (let i = 0; i <= stops; i++) {
-            const d = climb.start + climb.length * i / stops;
-            svgEl('stop', {offset: (i / stops).toFixed(4),
-                           'stop-color': gradeColor(gradeAt(profile, d, gradeWindow), s.colorScheme, 1)}, grad);
-        }
-        const poly = points.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
-        poly.push(`${width},${bottom}`, `0,${bottom}`);
-        svgEl('polygon', {points: poly.join(' '), fill: `url(#${gradId})`, 'fill-opacity': opacity}, svg);
+    const imperial = isImperial();
+    // The terrain only changes with the climb, the window size or the look, so it's kept between
+    // updates; only the live layer (you, the dimmed part, other riders) is redrawn each time.
+    const terrainKey = JSON.stringify([course?.key, climb.start, climb.end, width, height, fontPx,
+        imperial, s.colorScheme, s.colorMode, opacity, chunkLen, !!s.showGradeLabels, flags.map(f => f.distance)]);
+    let terrain = svg.querySelector(':scope > g.terrain');
+    if (!terrain || terrain.dataset.key !== terrainKey) {
+        svg.replaceChildren();
+        terrain = svgEl('g', {class: 'terrain'}, svg);
+        terrain.dataset.key = terrainKey;
+        drawTerrain(terrain, {climb, points, flags, flagH, labelSize, width, bottom, x, y, chunkLen, opacity, imperial});
     }
-    svgEl('polyline', {
-        class: 'outline',
-        points: points.map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`).join(' '),
-    }, svg);
-    if (s.showGradeLabels) {
-        for (const c of chunks) {
-            const w = x(c.end) - x(c.start);
-            const g = Math.round(c.grade * 100);
-            const text = w >= labelSize * 2.6 ? `${g}%` : w >= labelSize * 1.5 ? `${g}` : null;
-            if (text) {
-                const t = svgEl('text', {class: 'grade-label', x: x(c.start) + w / 2,
-                                         y: bottom - labelSize * 0.4, 'font-size': labelSize}, svg);
-                t.textContent = text;
-            }
-        }
-    }
-    for (const f of flags) {
-        drawSegmentFlag(svg, f, climb.segment.name, x(f.distance), y(elevationAt(profile, f.distance)), flagH, width);
-    }
+    svg.querySelector(':scope > g.live')?.remove();
+    const live = svgEl('g', {class: 'live'}, svg);
     if (s.showRiders && !positionUnknown && pos != null) {
         for (const r of ridersOnClimb(climb, pos)) {
             const dot = svgEl('circle', {class: `other-rider${r.marked ? ' marked' : ''}`, cx: x(r.distance),
-                                         cy: y(elevationAt(profile, r.distance)), r: Math.max(2, labelSize * 0.32)}, svg);
+                                         cy: y(elevationAt(profile, r.distance)), r: Math.max(2, labelSize * 0.32)}, live);
             const gap = toText(formatDistance(Math.abs(r.gap), isImperial()));
             svgEl('title', {}, dot).textContent = `${r.name ? r.name + ' · ' : ''}${gap} ${r.gap < 0 ? 'ahead' : 'behind'}`;
         }
     }
-    const imperial = isImperial();
-    const summit = svgEl('text', {class: 'summit-label', x: width - 2, y: labelSize, 'font-size': labelSize * 0.9}, svg);
-    summit.textContent = `▲ ${toText(formatElevation(climb.endElevation, imperial))}`;
     if (progress.state === 'climbing') {
         const px = x(pos);
         if (s.dimCompleted && px > 0) {
@@ -844,22 +861,23 @@ function renderProfile(climb, pos, progress, positionUnknown) {
             const done = points.filter(([d]) => d < pos).map(([d, e]) => `${x(d).toFixed(1)},${y(e).toFixed(1)}`);
             done.push(`${px.toFixed(1)},${y(elevationAt(profile, pos)).toFixed(1)}`,
                       `${px.toFixed(1)},${bottom}`, `0,${bottom}`);
-            svgEl('polygon', {class: 'completed', points: done.join(' ')}, svg);
+            svgEl('polygon', {class: 'completed', points: done.join(' ')}, live);
         }
         // An arrow just above the line, so the gradient colour where you are stays visible
         const tip = y(elevationAt(profile, pos)) - Math.max(2, labelSize * 0.3);
         const w = Math.max(5, labelSize * 0.75);
         const h = Math.max(7, labelSize * 1.1);
         const ax = Math.min(width - w, Math.max(w, px));  // whole arrow inside the window at either end
-        svgEl('polygon', {class: 'rider-marker', points: `${ax},${tip} ${ax - w},${tip - h} ${ax + w},${tip - h}`}, svg);
+        svgEl('polygon', {class: 'rider-marker', points: `${ax},${tip} ${ax - w},${tip - h} ${ax + w},${tip - h}`}, live);
     } else if (progress.state !== 'done') {
-        const t = svgEl('text', {class: 'base-label', x: 2, y: labelSize, 'font-size': labelSize * 0.9}, svg);
+        const t = svgEl('text', {class: 'base-label', x: 2, y: labelSize, 'font-size': labelSize * 0.9}, live);
         t.textContent = positionUnknown ?
             `at ${toText(formatDistance(climb.start, imperial))}` :
             `▶ ${toText(formatDistance(progress.toStart, imperial))}`;
     }
     const stops = Math.max(2, Math.min(600, Math.round(width / 2)));
-    profileView = {climb, width, bottom, labelSize, y, gradeWindow: Math.max(40, climb.length / stops * 2)};
+    profileView = {climb, width, bottom, labelSize, y, gradeWindow: Math.max(40, climb.length / stops * 2),
+                   riderPos: progress.state === 'climbing' && pos != null ? pos : null};
     drawHover();
 }
 
@@ -881,14 +899,16 @@ function drawHover() {
     const g = svgEl('g', {class: 'hover'}, svg);
     svgEl('line', {class: 'hover-line', x1: px, x2: px, y1: py, y2: v.bottom}, g);
     svgEl('circle', {class: 'hover-dot', cx: px, cy: py, r: Math.max(2.5, v.labelSize * 0.3)}, g);
-    // Grade (same detail as the colors) and how far into the climb, beside the point
+    // Grade (same detail as the colors) and how far ahead of you (while climbing) or into the climb
     const left = px > v.width * 0.65;
     const t = svgEl('text', {class: 'hover-label', x: left ? px - 6 : px + 6,
                              y: Math.max(v.labelSize * 2.1, py - v.labelSize * 0.5),
                              'font-size': v.labelSize, 'text-anchor': left ? 'end' : 'start'}, g);
     const grade = svgEl('tspan', {class: 'hover-grade', 'font-size': v.labelSize * 1.25}, t);
     grade.textContent = toText(formatGrade(gradeAt(profile, d, v.gradeWindow)));
-    svgEl('tspan', {}, t).textContent = ` · ${toText(formatDistance(d - v.climb.start, isImperial()))}`;
+    const from = v.riderPos != null ? d - v.riderPos : d - v.climb.start;
+    const sign = v.riderPos == null ? '' : from >= 0 ? '+' : '\u2212';
+    svgEl('tspan', {}, t).textContent = ` · ${sign}${toText(formatDistance(Math.abs(from), isImperial()))}`;
 }
 
 // ---------- Other riders ----------
@@ -899,26 +919,40 @@ const riderStates = new Map();  // athleteId -> {state, time}
 let nearby = {time: 0, byId: new Map()};
 let ridersSubscribed = false;
 
+function onStates(data) {
+    const now = Date.now();
+    for (const st of Array.isArray(data) ? data : []) {
+        if (st && st.athleteId != null) {
+            riderStates.set(st.athleteId, {state: st, time: now});
+        }
+    }
+}
+
+function onNearby(data) {
+    const byId = new Map();
+    for (const ad of Array.isArray(data) ? data : []) {
+        if (ad && ad.athleteId != null) {
+            byId.set(ad.athleteId, ad);
+        }
+    }
+    nearby = {time: Date.now(), byId};
+}
+
+// Only follow every rider's state while other riders are shown; stop (and forget them) when off.
 function updateNearbySubscription() {
-    if (settings().showRiders && !ridersSubscribed) {
+    const want = !!settings().showRiders;
+    if (want && !ridersSubscribed) {
         ridersSubscribed = true;
-        common.subscribe('states', data => {
-            const now = Date.now();
-            for (const st of Array.isArray(data) ? data : []) {
-                if (st && st.athleteId != null) {
-                    riderStates.set(st.athleteId, {state: st, time: now});
-                }
-            }
-        });
-        common.subscribe('nearby', data => {
-            const byId = new Map();
-            for (const ad of Array.isArray(data) ? data : []) {
-                if (ad && ad.athleteId != null) {
-                    byId.set(ad.athleteId, ad);
-                }
-            }
-            nearby = {time: Date.now(), byId};
-        });
+        common.subscribe('states', onStates);
+        common.subscribe('nearby', onNearby);
+    } else if (!want && ridersSubscribed) {
+        ridersSubscribed = false;
+        if (typeof common.unsubscribe === 'function') {
+            common.unsubscribe('states', onStates);
+            common.unsubscribe('nearby', onNearby);
+        }
+        riderStates.clear();
+        nearby = {time: 0, byId: new Map()};
     }
 }
 
@@ -1390,11 +1424,33 @@ function effortStat(key, x, imperial) {
         case 'kj': return ['Energy', n(x.kj, 0, 'kJ')];
         case 'distance': return ['Distance', missing(x.distance) ? '-' : formatDistance(x.distance, imperial)];
         case 'ascent': return ['Climbed', missing(x.ascent) ? '-' : formatElevation(x.ascent, imperial)];
+        case 'eta': return ['Est. to top', missing(x.eta) ? '-' : formatDuration(x.eta)];
     }
     return ['', ''];
 }
 
 const SUMMARY_STATS = ['time', 'avgPower', 'wkg', 'vam', 'avgHR', 'maxHR', 'avgSpeed', 'avgCadence'];
+
+// The stats offered in settings. 'eta' only makes sense while climbing, so not in the summary.
+const STAT_OPTIONS = [
+    ['time', 'Time'], ['avgPower', 'Avg power'], ['wkg', 'Avg W/kg'], ['avgHR', 'Avg HR'],
+    ['maxHR', 'Max HR'], ['vam', 'VAM'], ['avgSpeed', 'Avg speed'], ['avgCadence', 'Cadence'],
+    ['np', 'NP (Normalized Power)'], ['maxPower', 'Max power'], ['kj', 'Energy (kJ)'],
+    ['distance', 'Distance'], ['ascent', 'Climbed'], ['eta', 'Est. time to top (live only)'],
+];
+
+function fillStatSelects() {
+    for (const select of document.querySelectorAll('select[data-stat-list]')) {
+        const live = select.dataset.statList === 'live';
+        const options = [['off', 'Off'], ...STAT_OPTIONS.filter(([key]) => live || key !== 'eta')];
+        select.replaceChildren(...options.map(([value, label]) => {
+            const o = document.createElement('option');
+            o.value = value;
+            o.textContent = label;
+            return o;
+        }));
+    }
+}
 
 function renderSummary(el, x) {
     const imperial = isImperial();
@@ -1416,19 +1472,25 @@ function renderLiveStats(climbEl, climb, progress, previewing) {
     const tracking = effort && climb && Math.abs(effort.climb.start - climb.start) < 1;
     const x = s.liveStats && !previewing && progress?.state === 'climbing' && tracking ?
         effort.live((a, b) => ascentAt(profile, b) - ascentAt(profile, a)) : null;
+    if (x) {
+        x.eta = estimateTimeLeft(x, progress.remaining, progress.remainingGrade);
+    }
     row.hidden = !x;
     if (!x) {
         return;
     }
     const imperial = isImperial();
+    let shown = 0;
     for (let i = 0; i < 4; i++) {
         const [label, f] = effortStat(s[`liveStat${i + 1}`], x, imperial);
         const cell = row.querySelector(`.stat[data-lstat="${i}"]`);
         cell.hidden = !label;
+        shown += label ? 1 : 0;
         cell.querySelector('.label').textContent = label;
         cell.querySelector('.num').textContent = typeof f === 'string' ? f : f.value;
         cell.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
     }
+    row.hidden = !shown;  // every slot off
 }
 
 
@@ -1500,6 +1562,7 @@ export async function main() {
 
 export async function settingsMain() {
     common.initInteractionListeners();
+    fillStatSelects();
     await common.initSettingsForm('form#options')();
     const select = document.querySelector('select[name="colorScheme"]');
     const preview = document.querySelector('.scheme-preview');
