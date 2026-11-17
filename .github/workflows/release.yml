@@ -39,6 +39,10 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Versions match
+        if: steps.version.outputs.exists == 'false'
+        run: node scripts/check-version.mjs
+
       - name: Test
         if: steps.version.outputs.exists == 'false'
         run: npm test
