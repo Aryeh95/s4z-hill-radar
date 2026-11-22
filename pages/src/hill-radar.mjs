@@ -58,6 +58,14 @@ common.settingsStore.setDefault({
 
 const settings = () => common.settingsStore.get();
 
+// Zoom length was in metres (beta builds); it's now in km or mi, matching the units
+{
+    const z = Number(settings().zoomProfile);
+    if (z >= 100) {
+        common.settingsStore.set('zoomProfile', String(z / 1000));
+    }
+}
+
 let course;         // {key, mode, distances, elevations, laps, segments}
 let profile;        // buildProfile() result for the course
 let climbs = [];
@@ -627,7 +635,7 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     // Zoom on long climbs: while climbing, the profile shows the stretch ahead and the whole
     // climb is a strip underneath. It moves on in small steps, so the terrain is redrawn rarely.
     const full = climb;
-    const zoomLen = Number(s.zoomProfile) || 0;
+    const zoomLen = (Number(s.zoomProfile) || 0) * (isImperial() ? metersPerMile : 1000);
     const zoomMin = (Number(s.zoomMinLength) || 0) * (isImperial() ? metersPerMile : 1000);
     const zoom = zoomLen > 0 && progress.state === 'climbing' && pos != null &&
         full.length > Math.max(zoomMin, zoomLen * 1.1);
@@ -1426,6 +1434,20 @@ export async function settingsMain() {
     common.initInteractionListeners();
     fillStatSelects();
     await common.initSettingsForm('form#options')();
+    // Zoom lengths in the units in use (Sauce's, unless overridden here)
+    const units = document.querySelector('select[name="units"]');
+    const zoomUnits = () => {
+        let sauceImperial = common.settingsStore.get('/imperialUnits');
+        if (sauceImperial == null) {
+            sauceImperial = common.imperialUnits;
+        }
+        const unit = resolveImperial(units?.value || 'auto', sauceImperial) ? 'mi' : 'km';
+        for (const o of document.querySelectorAll('select[name="zoomProfile"] option:not([value="off"])')) {
+            o.textContent = `Next ${o.value} ${unit}`;
+        }
+    };
+    zoomUnits();
+    units?.addEventListener('change', zoomUnits);
     const select = document.querySelector('select[name="colorScheme"]');
     const preview = document.querySelector('.scheme-preview');
     if (select && preview) {

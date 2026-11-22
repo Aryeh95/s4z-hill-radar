@@ -97,7 +97,7 @@ You choose the stats: eight slots for the summary and four for the live row, eac
 - Color the grade number with the gradient colors
 - Gradient coloring: Smooth (high resolution, colored point by point) or Sections
 - Gradient color opacity, section length, grade labels, dim the completed part
-- Zoom long climbs: Off, or the next 1, 2 or 5 km in detail while you're on a climb longer than a length you set (3 km or mi by default, and longer than the part zoomed in on), with the whole climb in a strip underneath
+- Zoom long climbs: Off, or the next 1, 2 or 5 km (or mi, matching your units) in detail while you're on a climb longer than a length you set (3 km or mi by default, and longer than the part zoomed in on), with the whole climb in a strip underneath
 - Font scaling, theme override, solid background, data background opacity
 - Show position info: shows where Hill Radar thinks you are and the data it used (handy when reporting a problem)
 
