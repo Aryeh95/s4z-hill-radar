@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Live climb stats: up to 8 (was 4), each slot can be off; they fill rows of up to 4.
+- Settings for a feature that's off are hidden (e.g. the summary's stats and how long it shows while the climb summary is off, the live stats while they're off, the zoom length while zoom is off).
 - New setting **Zoom long climbs** (off by default): on climbs longer than a length you set (3 km or mi by default), the profile shows the next 1, 2 or 5 km (or miles, with imperial units) in detail, so short kickers and easier bits stand out, with the whole climb in the gradient colors in a strip underneath, the part shown boxed and your position marked.
 - Lap comparisons: new stats **time vs last lap** and **time vs best lap** (live, at the same point on the climb, and in the summary) and **avg power vs last lap** (summary), against your earlier laps of the same climb in this ride, green when ahead and red when behind.
 - The upcoming climbs list has every climb ahead: the setting is how many rows show (up to 10), and the list scrolls with the mouse wheel for the rest, with a fade at the bottom while there's more.

@@ -77,7 +77,7 @@ Climbs without an official segment are found from the elevation profile. When on
 - **Climb summary** (on by default): at the top of a climb, your stats for the climb show for a few seconds, marked "partial" if you joined partway up. The finished climb's profile stays under the summary (turn off **with the climb profile** for just the stats), and the next climbs stay listed below.
 - **Live climb stats** (off by default): while climbing, a second row under the climb numbers shows the climb so far.
 
-You choose the stats: eight slots for the summary and four for the live row, each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off. The live row also offers **estimated time to the top**: your pace on the climb so far, adjusted for the grade left (slower if it gets steeper, faster if it eases). With slots off, the live stats shown share the row.
+You choose the stats: eight slots for the summary and eight for the live row (in rows of up to four), each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off. The live row also offers **estimated time to the top**: your pace on the climb so far, adjusted for the grade left (slower if it gets steeper, faster if it eases). With slots off, the live stats shown share the row.
 
 **Lap comparisons:** on routes with laps, the stats **time vs last lap** and **time vs best lap** (live: at the same point on the climb; summary: the whole climb) and **avg power vs last lap** (summary) compare you with your earlier laps of the same climb in this ride, green when you're ahead and red when behind. They need a full attempt from the bottom to compare, and are kept until you close Hill Radar or watch someone else.
 
@@ -87,7 +87,7 @@ You choose the stats: eight slots for the summary and four for the live row, eac
 - Include gentle climbs (1.5%+ instead of 3%)
 - Show next climb within (km or mi; 0 = always)
 - Climb summary at the top: on/off, how long it shows (5–30 seconds) and its eight stats
-- Live climb stats while climbing: on/off and its four stats
+- Live climb stats while climbing: on/off and up to eight stats (each can be off)
 - Show other riders on the climb profile
 - Show segment start/finish flags
 - Hide when no climb

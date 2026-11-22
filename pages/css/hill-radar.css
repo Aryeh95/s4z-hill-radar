@@ -118,10 +118,8 @@ html:not(.settings-page) body {
 }
 
 .live-stats {
-    /* Slots can be off: the ones shown share the width */
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+    /* Up to 8 slots, any off: the ones shown share the width (columns set in renderLiveStats) */
+    row-gap: 0.25em;
     margin-top: 0;
     padding-top: 0.2em;
     border-top: 1px solid rgba(127, 127, 127, 0.35);
@@ -496,6 +494,11 @@ html:not(.settings-page) body {
 }
 
 /* Settings page */
+/* Settings for a feature that's off (e.g. the summary's stats while the summary is off) are hidden */
+.settings-page label.disabled {
+    display: none;
+}
+
 .settings-page .scheme-preview {
     display: block;
     box-sizing: border-box;

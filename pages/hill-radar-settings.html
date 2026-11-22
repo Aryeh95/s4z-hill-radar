@@ -124,6 +124,22 @@
                     <key>&nbsp;&nbsp;- stat 4:</key>
                     <select name="liveStat4" data-stat-list="live" data-depends-on="liveStats"></select>
                 </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 5:</key>
+                    <select name="liveStat5" data-stat-list="live" data-depends-on="liveStats"></select>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 6:</key>
+                    <select name="liveStat6" data-stat-list="live" data-depends-on="liveStats"></select>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 7:</key>
+                    <select name="liveStat7" data-stat-list="live" data-depends-on="liveStats"></select>
+                </label>
+                <label>
+                    <key>&nbsp;&nbsp;- stat 8:</key>
+                    <select name="liveStat8" data-stat-list="live" data-depends-on="liveStats"></select>
+                </label>
 
                 <div class="title">Units</div>
                 <label title="Auto follows the Units setting in Sauce's main settings">
@@ -172,7 +188,7 @@
                 </label>
                 <label title="Zoom only on climbs longer than this (km or mi, matching your units). The climb also has to be longer than the part zoomed in on.">
                     <key>&nbsp;&nbsp;- on climbs longer than:</key>
-                    <input type="number" name="zoomMinLength" min="0" max="50" step="0.5" style="--size: 5"/>
+                    <input type="number" name="zoomMinLength" min="0" max="50" step="0.5" style="--size: 5" data-depends-on="zoomProfile!=off"/>
                 </label>
                 <label title="Length of each section for grade labels (and colors in Sections mode)">
                     <key>Section length:</key>

@@ -54,6 +54,10 @@ common.settingsStore.setDefault({
     liveStat2: 'avgPower',
     liveStat3: 'wkg',
     liveStat4: 'avgHR',
+    liveStat5: 'off',
+    liveStat6: 'off',
+    liveStat7: 'off',
+    liveStat8: 'off',
 });
 
 const settings = () => common.settingsStore.get();
@@ -1348,7 +1352,7 @@ function renderLiveStats(climbEl, climb, progress, previewing) {
     }
     const imperial = isImperial();
     let shown = 0;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 8; i++) {
         const [label, f, color=''] = effortStat(s[`liveStat${i + 1}`], x, imperial);
         const cell = row.querySelector(`.stat[data-lstat="${i}"]`);
         cell.querySelector('.value').style.color = color;
@@ -1359,6 +1363,8 @@ function renderLiveStats(climbEl, climb, progress, previewing) {
         cell.querySelector('.unit').textContent = typeof f === 'string' ? '' : f.unit;
     }
     row.hidden = !shown;  // every slot off
+    // Up to 4 a row, rows balanced (5 = 3 + 2, 6 = 3 + 3, 7 = 4 + 3)
+    row.style.gridTemplateColumns = `repeat(${shown <= 4 ? shown : Math.ceil(shown / 2)}, minmax(0, 1fr))`;
 }
 
 
