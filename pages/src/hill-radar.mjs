@@ -27,6 +27,7 @@ common.settingsStore.setDefault({
     gradientOpacity: 0.9,
     chunkLength: 'auto',
     zoomProfile: 'off',
+    zoomMinLength: 3,  // km or mi
     showGradeLabels: true,
     dimCompleted: true,
     showSegmentFlags: true,
@@ -627,7 +628,9 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     // climb is a strip underneath. It moves on in small steps, so the terrain is redrawn rarely.
     const full = climb;
     const zoomLen = Number(s.zoomProfile) || 0;
-    const zoom = zoomLen > 0 && progress.state === 'climbing' && pos != null && full.length > zoomLen * 1.5;
+    const zoomMin = (Number(s.zoomMinLength) || 0) * (isImperial() ? metersPerMile : 1000);
+    const zoom = zoomLen > 0 && progress.state === 'climbing' && pos != null &&
+        full.length > Math.max(zoomMin, zoomLen * 1.1);
     if (zoom) {
         const q = zoomLen / 40;
         const v0 = Math.min(full.end - zoomLen, Math.max(full.start, Math.round((pos - zoomLen * 0.2) / q) * q));

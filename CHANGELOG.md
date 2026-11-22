@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- New setting **Zoom long climbs** (off by default): on a longer climb, the profile shows the next 1, 2 or 5 km in detail, so short kickers and easier bits stand out, with the whole climb in the gradient colors in a strip underneath, the part shown boxed and your position marked.
+- New setting **Zoom long climbs** (off by default): on climbs longer than a length you set (3 km by default), the profile shows the next 1, 2 or 5 km in detail, so short kickers and easier bits stand out, with the whole climb in the gradient colors in a strip underneath, the part shown boxed and your position marked.
 - Lap comparisons: new stats **time vs last lap** and **time vs best lap** (live, at the same point on the climb, and in the summary) and **avg power vs last lap** (summary), against your earlier laps of the same climb in this ride, green when ahead and red when behind.
 - The upcoming climbs list has every climb ahead: the setting is how many rows show (up to 10), and the list scrolls with the mouse wheel for the rest, with a fade at the bottom while there's more.
 - **Color the grade number** now reads on every Sauce theme: the color keeps its hue and only gets darker (light themes) or lighter (dark ones) as needed to stand out from the panel. Before, it assumed a dark panel, so greens and yellows nearly vanished on the Light and Aqua themes, and some colors on the default and Watermelon themes.
