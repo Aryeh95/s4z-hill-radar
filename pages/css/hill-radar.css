@@ -150,16 +150,16 @@ html:not(.settings-page) body {
 }
 
 .profile .zoom-strip {
-    fill: var(--hr-fg);
-    fill-opacity: 0.3;
+    stroke: var(--hr-fg);
+    stroke-opacity: 0.5;
+    stroke-width: 0.75;
 }
 
 .profile .zoom-window {
     fill: var(--hr-fg);
-    fill-opacity: 0.18;
+    fill-opacity: 0.15;
     stroke: var(--hr-fg);
-    stroke-opacity: 0.7;
-    stroke-width: 1;
+    stroke-width: 1.5;
 }
 
 .profile .zoom-pos {
@@ -287,6 +287,18 @@ html:not(.settings-page) body {
     gap: 0.1em;
     margin-top: 0.25em;
     font-size: 0.85em;
+    flex: none;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.upcoming > .row {
+    flex: none;
+}
+
+/* More climbs than rows: a fade at the bottom says the list scrolls */
+.upcoming.scrolls {
+    mask-image: linear-gradient(to bottom, black calc(100% - 0.8em), transparent);
 }
 
 .upcoming:empty {

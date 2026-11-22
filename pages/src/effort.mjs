@@ -3,6 +3,7 @@
 
 const maxGap = 5;  // s; longer gaps between samples (pauses, lag) count as this long
 const npWindow = 30;  // s, rolling average used for Normalized Power
+const traceStep = 10;  // m between points of the time-by-distance trace
 
 
 export class ClimbEffort {
@@ -26,6 +27,7 @@ export class ClimbEffort {
         this.np4Sum = 0;          // sum of rolling average^4 x time, once 30 s are in
         this.np4Time = 0;
         this.weight = null;
+        this.trace = [];          // [distance from startPos (m), seconds since startTime], every 10 m
     }
 
     /**
@@ -62,8 +64,10 @@ export class ClimbEffort {
                 this.startPos = pos;
             }
             this.last = {...sample, t: this.startTime, pos: this.startPos};
+            this.trace.push([0, 0]);
             if (t > this.startTime) {
                 this._accumulate(sample, t - this.startTime);
+                this._trace(pos, t);
             }
             this.last = sample;
             return false;
@@ -78,8 +82,20 @@ export class ClimbEffort {
             done = true;
         }
         this._accumulate(sample, dt);
+        if (done) {
+            this.trace.push([c.end - this.startPos, this.endTime - this.startTime]);
+        } else {
+            this._trace(pos, t);
+        }
         this.last = sample;
         return done;
+    }
+
+    _trace(pos, t) {
+        const d = pos - this.startPos;
+        if (d - this.trace[this.trace.length - 1][0] >= traceStep) {
+            this.trace.push([d, t - this.startTime]);
+        }
     }
 
     _accumulate(sample, dt) {
@@ -192,6 +208,101 @@ export function estimateTimeLeft(x, remaining, remainingGrade, c=0.02) {
     const gradeDone = Math.max(0, (x.ascent || 0) / x.distance);
     const speedLeft = speed * (gradeDone + c) / (Math.max(0, remainingGrade) + c);
     return speedLeft > 0 ? remaining / speedLeft : null;
+}
+
+/** Seconds into an attempt at `distance` m from its start, from its trace, or null past its end. */
+export function timeAtDistance(trace, distance) {
+    if (!trace || trace.length < 2 || !(distance >= 0) || distance > trace[trace.length - 1][0]) {
+        return null;
+    }
+    let i = 1;
+    while (i < trace.length - 1 && trace[i][0] < distance) {
+        i++;
+    }
+    const [d0, t0] = trace[i - 1];
+    const [d1, t1] = trace[i];
+    return d1 > d0 ? t0 + (t1 - t0) * (distance - d0) / (d1 - d0) : t1;
+}
+
+
+/**
+ * This ride's attempts at each climb, to compare laps: the previous attempt and the best (the
+ * fastest). Only full attempts (from the bottom) count. A climb's key says which climb it is
+ * (e.g. its place in the lap); same(a, b) says two keys are the same climb.
+ */
+export class ClimbHistory {
+    constructor(same=(a, b) => a === b) {
+        this.same = same;
+        this.climbs = [];  // [{key, attempts: [{time, avgPower, trace}]}]
+    }
+
+    _attempts(key) {
+        const entry = this.climbs.find(x => this.same(x.key, key));
+        return entry ? entry.attempts : null;
+    }
+
+    /** Record a finished attempt: stats from ClimbEffort.summary(), trace from the effort. */
+    add(key, stats, trace) {
+        if (!stats || stats.partial || !(stats.time > 0)) {
+            return;
+        }
+        let attempts = this._attempts(key);
+        if (!attempts) {
+            attempts = [];
+            this.climbs.push({key, attempts});
+        }
+        attempts.push({time: stats.time, avgPower: stats.avgPower, trace});
+    }
+
+    clear() {
+        this.climbs = [];
+    }
+
+    previous(key) {
+        const list = this._attempts(key);
+        return list && list.length ? list[list.length - 1] : null;
+    }
+
+    best(key) {
+        const list = this._attempts(key);
+        return list && list.length ? list.reduce((a, b) => b.time < a.time ? b : a) : null;
+    }
+
+    /**
+     * Seconds ahead (negative) or behind (positive) of the previous and the best attempt, at the
+     * same distance into the climb: {vsLast, vsBest}, null where there's nothing to compare.
+     */
+    live(key, distance, elapsed) {
+        const at = a => {
+            const t = a ? timeAtDistance(a.trace, distance) : null;
+            return t == null || !Number.isFinite(elapsed) ? null : elapsed - t;
+        };
+        return {vsLast: at(this.previous(key)), vsBest: at(this.best(key))};
+    }
+
+    /** The finished attempt against the previous and the best: time (s) and average power (W). */
+    final(key, stats) {
+        const prev = this.previous(key);
+        const best = this.best(key);
+        if (!stats || stats.partial) {
+            return {vsLast: null, vsBest: null, vsLastPower: null};
+        }
+        return {
+            vsLast: prev ? stats.time - prev.time : null,
+            vsBest: best ? stats.time - best.time : null,
+            vsLastPower: prev && stats.avgPower != null && prev.avgPower != null ? stats.avgPower - prev.avgPower : null,
+        };
+    }
+}
+
+
+/** "-0:04" / "+1:12": a time difference (ahead is negative). */
+export function formatDelta(seconds) {
+    if (!Number.isFinite(seconds)) {
+        return '-';
+    }
+    const r = Math.round(seconds);
+    return (r < 0 ? '\u2212' : '+') + formatDuration(Math.abs(r));
 }
 
 export function formatDuration(seconds) {

@@ -336,7 +336,7 @@ test('gentle climbs are found only with a lower minimum grade', () => {
     near(gentle[0].avgGrade, 0.017, 0.003, 'grade');
 });
 
-import {ClimbEffort, formatDuration, estimateTimeLeft} from '../pages/src/effort.mjs';
+import {ClimbEffort, ClimbHistory, formatDuration, formatDelta, estimateTimeLeft, timeAtDistance} from '../pages/src/effort.mjs';
 
 function ride(effort, {from, to, speed, power, hr, cadence, weight=75, t0=1000, step=1}) {
     // speed in m/s; one sample per `step` seconds
@@ -633,4 +633,42 @@ test('colored grade number reads on any theme background, keeping its hue', () =
     assert.deepEqual(parseRgb('rgb(255, 0, 0)'), [1, 0, 0]);
     // A see-through panel: its color mixed with the (mid grey) game behind it
     assert.deepEqual(parseRgb('rgba(255, 0, 0, 0.5)').map(x => Math.round(x * 100)), [73, 23, 23]);
+});
+
+test('lap comparison: time by distance, previous and best attempts', () => {
+    const ride = (speed, power, climb={start: 1000, end: 2000, length: 1000}) => {
+        const e = new ClimbEffort(climb);
+        // From 100 m before the bottom to past the top, one update a second
+        for (let t = 0, done = false; !done && t < 1000; t++) {
+            done = e.add({t, pos: 900 + t * speed, power});
+        }
+        return {e, stats: e.summary(() => 0)};
+    };
+    const first = ride(5, 250);   // 200 s
+    assert.ok(Math.abs(first.stats.time - 200) < 0.01);
+    assert.ok(Math.abs(timeAtDistance(first.e.trace, 500) - 100) < 0.01);
+    assert.equal(timeAtDistance(first.e.trace, 1500), null);
+    const same = (a, b) => Math.abs(a.offset - b.offset) < 40 && Math.abs(a.length - b.length) < 60;
+    const h = new ClimbHistory(same);
+    const key = {offset: 3000, length: 1000};
+    assert.deepEqual(h.final(key, first.stats), {vsLast: null, vsBest: null, vsLastPower: null});
+    h.add(key, first.stats, first.e.trace);
+    // Lap 2, faster: 4 s ahead at 500 m already shows; the same climb found 20 m off still matches
+    const lap2key = {offset: 3020, length: 990};
+    assert.ok(Math.abs(h.live(lap2key, 500, 96).vsLast - -4) < 0.01);
+    const second = ride(6.25, 300);  // 160 s
+    const cmp = h.final(lap2key, second.stats);
+    assert.ok(Math.abs(cmp.vsLast - -40) < 0.01);
+    assert.ok(Math.abs(cmp.vsBest - -40) < 0.01);
+    assert.ok(Math.abs(cmp.vsLastPower - 50) < 0.01);
+    h.add(lap2key, second.stats, second.e.trace);
+    // Lap 3, slow: behind the last (lap 2) and the best (lap 2)
+    const third = ride(4, 220);  // 250 s
+    const c3 = h.final(key, third.stats);
+    assert.ok(Math.abs(c3.vsLast - 90) < 0.01 && Math.abs(c3.vsBest - 90) < 0.01);
+    // A different climb, or a partial attempt, has nothing to compare with
+    assert.equal(h.live({offset: 9000, length: 1000}, 500, 100).vsLast, null);
+    assert.deepEqual(h.final(key, {...third.stats, partial: true}), {vsLast: null, vsBest: null, vsLastPower: null});
+    assert.equal(formatDelta(-4.2), '−0:04');
+    assert.equal(formatDelta(72), '+1:12');
 });

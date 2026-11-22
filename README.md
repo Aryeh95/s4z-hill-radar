@@ -79,6 +79,8 @@ Climbs without an official segment are found from the elevation profile. When on
 
 You choose the stats: eight slots for the summary and four for the live row, each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off. The live row also offers **estimated time to the top**: your pace on the climb so far, adjusted for the grade left (slower if it gets steeper, faster if it eases). With slots off, the live stats shown share the row.
 
+**Lap comparisons:** on routes with laps, the stats **time vs last lap** and **time vs best lap** (live: at the same point on the climb; summary: the whole climb) and **avg power vs last lap** (summary) compare you with your earlier laps of the same climb in this ride, green when you're ahead and red when behind. They need a full attempt from the bottom to compare, and are kept until you close Hill Radar or watch someone else.
+
 ## Settings
 
 - Climb detection: All / Medium and large / Only large
@@ -89,12 +91,13 @@ You choose the stats: eight slots for the summary and four for the live row, eac
 - Show other riders on the climb profile
 - Show segment start/finish flags
 - Hide when no climb
-- Upcoming climbs list (0 to 5)
+- Upcoming climbs list: how many rows show (0 to 10); every climb ahead is in the list, scroll it with the mouse wheel for the rest
 - Units: Auto (follows Sauce), Metric or Imperial
 - Gradient color scheme: Classic, Sauce, Veloviewer (ish), CVD-BuRd, CVD-PRGn, CVD-Sunset, Barberfish, with a preview of the selected scheme
 - Color the grade number with the gradient colors
 - Gradient coloring: Smooth (high resolution, colored point by point) or Sections
 - Gradient color opacity, section length, grade labels, dim the completed part
+- Zoom long climbs: Off, or the next 1, 2 or 5 km in detail while you're on a longer climb, with the whole climb in a strip underneath
 - Font scaling, theme override, solid background, data background opacity
 - Show position info: shows where Hill Radar thinks you are and the data it used (handy when reporting a problem)
 

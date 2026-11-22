@@ -3,7 +3,7 @@ import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChun
         autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbStart, portalClimbEnd, climbsFromStart,
         detectClimbsSplit,
         DETECTION_SCORES} from './climbs.mjs';
-import {ClimbEffort, formatDuration, estimateTimeLeft} from './effort.mjs';
+import {ClimbEffort, ClimbHistory, formatDuration, formatDelta, estimateTimeLeft} from './effort.mjs';
 import {gradeColor, gradeTextColor, parseRgb} from './colors.mjs';
 import {fallbackClimbName, climbNameByShape} from './names.mjs';
 import {portalClimbs} from './climb-names.mjs';
@@ -442,6 +442,7 @@ async function onWatching(ad) {
         previewIndex = null;
         effort = null;
         summary = null;
+        history.clear();
         lastWeight = ad.athlete && ad.athlete.weight > 0 ? ad.athlete.weight : null;
     }
     const key = courseKey(state);
@@ -666,7 +667,7 @@ function renderProfile(climb, pos, progress, positionUnknown) {
         terrain.dataset.key = terrainKey;
         drawTerrain(terrain, {climb, points, flags, flagH, labelSize, width, bottom, x, y, chunkLen, opacity, imperial});
         if (zoom) {
-            drawZoomStrip(terrain, full, climb, width, height, stripH);
+            drawZoomStrip(terrain, full, climb, width, height, stripH, s.colorScheme, opacity);
         }
     }
     svg.querySelector(':scope > g.live')?.remove();
@@ -710,8 +711,9 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     drawHover();
 }
 
-// The whole climb as a strip under a zoomed profile, with the part shown marked.
-function drawZoomStrip(g, full, view, width, height, stripH) {
+// The whole climb as a strip under a zoomed profile, in the gradient colors, with the part
+// shown marked.
+function drawZoomStrip(g, full, view, width, height, stripH, scheme, opacity) {
     const top = height - stripH + 2;
     const bottom = height - 1;
     const n = Math.max(20, Math.round(width / 3));
@@ -726,7 +728,17 @@ function drawZoomStrip(g, full, view, width, height, stripH) {
     const sy = e => bottom - (e - lo) / ((hi - lo) || 1) * (bottom - top);
     const poly = pts.map(([d, e]) => `${sx(d).toFixed(1)},${sy(e).toFixed(1)}`);
     poly.push(`${width},${bottom}`, `0,${bottom}`);
-    svgEl('polygon', {class: 'zoom-strip', points: poly.join(' ')}, g);
+    const gradId = 'zoom-strip-fill';
+    const grad = svgEl('linearGradient', {id: gradId, gradientUnits: 'userSpaceOnUse', x1: 0, y1: 0, x2: width, y2: 0},
+                       svgEl('defs', {}, g));
+    const stops = Math.max(2, Math.min(300, Math.round(width / 3)));
+    const gradeWindow = Math.max(40, full.length / stops * 2);
+    for (let i = 0; i <= stops; i++) {
+        const d = full.start + full.length * i / stops;
+        svgEl('stop', {offset: (i / stops).toFixed(4),
+                       'stop-color': gradeColor(gradeAt(profile, d, gradeWindow), scheme, 1)}, grad);
+    }
+    svgEl('polygon', {class: 'zoom-strip', points: poly.join(' '), fill: `url(#${gradId})`, 'fill-opacity': opacity}, g);
     svgEl('rect', {class: 'zoom-window', x: sx(view.start), y: top - 1,
                    width: sx(view.end) - sx(view.start), height: bottom - top + 1}, g);
 }
@@ -913,12 +925,27 @@ function setRows(el, rows) {
     }
 }
 
-function renderUpcoming(list, positionUnknown) {
+function renderUpcoming(list, positionUnknown, rows=list.length) {
     const imperial = isImperial();
-    setRows(document.querySelector('.upcoming'), list.map(({climb: c, toStart}) => climbRow(c, {
+    const el = document.querySelector('.upcoming');
+    setRows(el, list.map(({climb: c, toStart}) => climbRow(c, {
         title: climbTitle(c),
         where: `${positionUnknown ? 'at' : 'in'} ${toText(formatDistance(toStart, imperial))}`,
     })));
+    // Room for `rows` rows; scroll (mouse wheel) for the rest
+    const first = el.firstElementChild;
+    if (first && list.length > rows) {
+        const gap = parseFloat(getComputedStyle(el).rowGap) || 0;
+        el.style.maxHeight = `${rows * first.offsetHeight + (rows - 1) * gap}px`;
+    } else {
+        el.style.maxHeight = '';
+    }
+    updateUpcomingFade(el);
+}
+
+// Fade the bottom while there are more climbs below to scroll to
+function updateUpcomingFade(el) {
+    el.classList.toggle('scrolls', el.scrollTop + el.clientHeight < el.scrollHeight - 2);
 }
 
 function preview(index) {
@@ -1086,18 +1113,19 @@ function render() {
     climbEl.querySelector('.preview-close').hidden = !previewing;
     idleEl.textContent = climb || showSummary ? '' : message;
     content.classList.toggle('hide-idle', !climb && !showSummary && !!s.hideWhenIdle);
-    // Later climbs. While the summary covers the climb view, the next climb is listed too.
+    // Later climbs, all of them: the setting is how many rows show, and the list scrolls for the
+    // rest. While the summary covers the climb view, the next climb is listed too.
     const upcoming = [];
     const count = Number(s.upcomingCount) || 0;
     if (pos != null && count > 0) {
         const shown = shownClimbs(pos);
         const after = showSummary ? shown.filter(x => x.end > pos) :
             liveClimb ? shown.filter(x => x.start > liveClimb.end) : shown.filter(x => x.start > pos);
-        for (const c of after.slice(0, count)) {
+        for (const c of after) {
             upcoming.push({climb: c, toStart: Math.max(0, c.start - pos)});
         }
     }
-    renderUpcoming(upcoming, positionUnknown);
+    renderUpcoming(upcoming, positionUnknown, count);
     if (summaryClimb) {
         renderProfile(summaryClimb, pos, {state: 'done'}, positionUnknown);
         return;
@@ -1178,14 +1206,27 @@ function trackEffort(state, pos, positionUnknown) {
     }
 }
 
+// This ride's attempts at each climb, to compare laps. A climb is known by its place in the lap
+// and its length, so it's the same climb on every lap.
+const history = new ClimbHistory((a, b) => a.base === b.base && Math.abs(a.offset - b.offset) < 40 &&
+                                           Math.abs(a.length - b.length) < 60);
+
+function climbKey(c) {
+    const lap = course?.laps ? course.laps[lapOf(c.start)] : null;
+    return {base: baseKey(course?.key), offset: c.start - (lap ? lap.lapStart : 0), length: c.length};
+}
+
 function finishEffort(e) {
     const s = settings();
-    if (s.climbSummary === false || e.coverage() < 0.5) {
-        return;
-    }
     const top = ascentAt(profile, e.climb.end);
     const stats = e.summary(pos => Math.max(0, top - ascentAt(profile, pos)));
     if (!stats) {
+        return;
+    }
+    const key = climbKey(e.climb);
+    Object.assign(stats, history.final(key, stats));
+    history.add(key, stats, e.trace);
+    if (s.climbSummary === false || e.coverage() < 0.5) {
         return;
     }
     const seconds = Math.min(60, Math.max(3, Number(s.summarySeconds) || 12));
@@ -1193,8 +1234,9 @@ function finishEffort(e) {
     setTimeout(render, seconds * 1000 + 50);
 }
 
-function setSummaryStat(el, i, label, f) {
+function setSummaryStat(el, i, label, f, color='') {
     const cell = el.querySelector(`.stat[data-sstat="${i}"]`);
+    cell.querySelector('.value').style.color = color;
     cell.hidden = !label;  // slot turned off
     cell.querySelector('.label').textContent = label;
     cell.querySelector('.num').textContent = typeof f === 'string' ? f : f.value;
@@ -1222,8 +1264,18 @@ function effortStat(key, x, imperial) {
         case 'distance': return ['Distance', missing(x.distance) ? '-' : formatDistance(x.distance, imperial)];
         case 'ascent': return ['Climbed', missing(x.ascent) ? '-' : formatElevation(x.ascent, imperial)];
         case 'eta': return ['Est. to top', missing(x.eta) ? '-' : formatDuration(x.eta)];
+        // Against this ride's earlier laps: ahead (faster) green, behind red
+        case 'vsLast': return ['vs last lap', formatDelta(x.vsLast), deltaColor(x.vsLast)];
+        case 'vsBest': return ['vs best lap', formatDelta(x.vsBest), deltaColor(x.vsBest)];
+        case 'vsLastPower': return ['Power vs last', missing(x.vsLastPower) ? '-' :
+            {value: `${x.vsLastPower >= 0 ? '+' : '\u2212'}${Math.abs(Math.round(x.vsLastPower))}`, unit: 'w'},
+            deltaColor(missing(x.vsLastPower) ? null : -x.vsLastPower)];
     }
     return ['', ''];
+}
+
+function deltaColor(seconds) {
+    return !Number.isFinite(seconds) || Math.round(seconds) === 0 ? '' : seconds < 0 ? '#4cd964' : '#ff5a4f';
 }
 
 const SUMMARY_STATS = ['time', 'avgPower', 'wkg', 'vam', 'avgHR', 'maxHR', 'avgSpeed', 'avgCadence'];
@@ -1234,12 +1286,16 @@ const STAT_OPTIONS = [
     ['maxHR', 'Max HR'], ['vam', 'VAM'], ['avgSpeed', 'Avg speed'], ['avgCadence', 'Cadence'],
     ['np', 'NP (Normalized Power)'], ['maxPower', 'Max power'], ['kj', 'Energy (kJ)'],
     ['distance', 'Distance'], ['ascent', 'Climbed'], ['eta', 'Est. time to top (live only)'],
+    ['vsLast', 'Time vs last lap'], ['vsBest', 'Time vs best lap'],
+    ['vsLastPower', 'Avg power vs last lap (summary only)'],
 ];
+const LIVE_ONLY = new Set(['eta']);
+const SUMMARY_ONLY = new Set(['vsLastPower']);
 
 function fillStatSelects() {
     for (const select of document.querySelectorAll('select[data-stat-list]')) {
         const live = select.dataset.statList === 'live';
-        const options = [['off', 'Off'], ...STAT_OPTIONS.filter(([key]) => live || key !== 'eta')];
+        const options = [['off', 'Off'], ...STAT_OPTIONS.filter(([key]) => live ? !SUMMARY_ONLY.has(key) : !LIVE_ONLY.has(key))];
         select.replaceChildren(...options.map(([value, label]) => {
             const o = document.createElement('option');
             o.value = value;
@@ -1271,6 +1327,9 @@ function renderLiveStats(climbEl, climb, progress, previewing) {
         effort.live((a, b) => ascentAt(profile, b) - ascentAt(profile, a)) : null;
     if (x) {
         x.eta = estimateTimeLeft(x, progress.remaining, progress.remainingGrade);
+        // Against earlier laps at the same point, when this attempt started at the bottom too
+        Object.assign(x, x.partial ? {vsLast: null, vsBest: null} :
+            history.live(climbKey(climb), x.distance, x.time));
     }
     row.hidden = !x;
     if (!x) {
@@ -1279,8 +1338,9 @@ function renderLiveStats(climbEl, climb, progress, previewing) {
     const imperial = isImperial();
     let shown = 0;
     for (let i = 0; i < 4; i++) {
-        const [label, f] = effortStat(s[`liveStat${i + 1}`], x, imperial);
+        const [label, f, color=''] = effortStat(s[`liveStat${i + 1}`], x, imperial);
         const cell = row.querySelector(`.stat[data-lstat="${i}"]`);
+        cell.querySelector('.value').style.color = color;
         cell.hidden = !label;
         shown += label ? 1 : 0;
         cell.querySelector('.label').textContent = label;
@@ -1341,6 +1401,8 @@ export async function main() {
         showList = false;
         render();
     });
+    const upcomingEl = document.querySelector('.upcoming');
+    upcomingEl.addEventListener('scroll', () => updateUpcomingFade(upcomingEl));
     document.querySelector('.summary-close').addEventListener('click', () => {
         summary = null;
         render();
