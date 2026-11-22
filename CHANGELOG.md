@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The climb count now shows the total, and the lap the total laps where there's a finish: "Climb 3 · 3/5 · lap 2/3". In free ride on a lapped route the total is the climbs to the end of the lap you're on.
+- Riding on after an event ends: the rest of that lap's climbs show once you're past the finish, and the next lap's once it starts, like free ride. A climb that crosses the finish ends at the finish line during the event; the part after it shows as its own climb (if it's a climb by itself) only if you ride on. Before, nothing showed after the finish, and a new lap could show the event's last lap again.
 - New live climb stat **Est. time to top**: your pace on the climb so far, adjusted for the grade left, so it allows for a steeper (or easier) finish.
 - Live climb stat slots can be turned off; the stats shown share the row.
 - While climbing, hovering the profile shows how far ahead of you (or behind) the point is, instead of the distance from the bottom.

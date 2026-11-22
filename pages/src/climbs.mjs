@@ -506,6 +506,40 @@ export function detectClimbs(profile, options={}) {
 
 
 /**
+ * Climbs on a course that's split at `split` (an event's finish): found up to the split and from
+ * it on separately, so a climb that crosses the finish counts as the climb to the finish line,
+ * and the rest of it, if it's a climb by itself, as a climb after the finish. Numbered in order.
+ */
+export function detectClimbsSplit(distances, elevations, split, options={}) {
+    const end = distances[distances.length - 1];
+    const whole = () => detectClimbs(buildProfile(distances, elevations), options);
+    if (!(split > distances[0] + 1 && split < end - 1)) {
+        return whole();
+    }
+    // Both parts include the point at the split (interpolated), so neither loses the end
+    let i = distances.findIndex(d => d >= split);
+    const t = (split - distances[i - 1]) / (distances[i] - distances[i - 1] || 1);
+    const splitE = elevations[i - 1] + (elevations[i] - elevations[i - 1]) * t;
+    const beforeD = [...distances.slice(0, i), split];
+    const beforeE = [...elevations.slice(0, i), splitE];
+    const afterD = distances[i] > split ? [split, ...distances.slice(i)] : distances.slice(i);
+    const afterE = distances[i] > split ? [splitE, ...elevations.slice(i)] : elevations.slice(i);
+    const segments = options.segments || [];
+    const parts = [];
+    if (beforeD.length >= 2) {
+        parts.push(...detectClimbs(buildProfile(beforeD, beforeE),
+                                   {...options, segments: segments.filter(s => s.start < split)}));
+    }
+    if (afterD.length >= 2) {
+        parts.push(...detectClimbs(buildProfile(afterD, afterE),
+                                   {...options, segments: segments.filter(s => s.end > split)
+                                       .map(s => s.start < split ? {...s, start: split} : s)}));
+    }
+    return parts.map((c, index) => ({...c, index}));
+}
+
+
+/**
  * Climbs the rider will actually ride when the ride starts at `start` on the course, renumbered.
  * Zwift can put you on a route some way past where its profile starts (e.g. the new Watopia
  * routes' start pens are near the top of a small rise): a climb mostly behind that point

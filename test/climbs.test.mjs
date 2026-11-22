@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
-        autoChunkLength, portalClimbStart, portalClimbEnd, climbsFromStart, DETECTION_SCORES} from '../pages/src/climbs.mjs';
+        autoChunkLength, portalClimbStart, portalClimbEnd, climbsFromStart, detectClimbsSplit, DETECTION_SCORES} from '../pages/src/climbs.mjs';
 import {gradeColor, gradeTextColor, SCHEMES} from '../pages/src/colors.mjs';
 import {routeKey, fallbackClimbName, climbNameByShape} from '../pages/src/names.mjs';
 import {climbShapes} from '../pages/src/climb-names.mjs';
@@ -586,4 +586,22 @@ test('NP: the rolling window stays 30 s with uneven sample gaps', () => {
     }
     assert.ok(Math.abs(e.npQueueTime - 30) < 1e-6, `window ${e.npQueueTime}`);
     assert.ok(e.live().np > 200 && e.live().np < 300);
+});
+
+test('event finishing mid-climb: the climb ends at the finish, the rest counts on its own', () => {
+    // Flat 2 km, 3 km at 6%, flat 2 km; the event finishes 1.5 km up the climb
+    const {distances: d, elevations: e} = makeProfile([[2000, 0], [3000, 0.06], [2000, 0]]);
+    const whole = detectClimbsSplit(d, e, null);
+    assert.equal(whole.length, 1);
+    assert.ok(Math.abs(whole[0].length - 3000) < 100);
+    const split = detectClimbsSplit(d, e, 3500);
+    assert.equal(split.length, 2);
+    assert.ok(Math.abs(split[0].end - 3500) < 20, `ends at the finish: ${split[0].end}`);
+    assert.ok(Math.abs(split[1].start - 3500) < 20, `rest starts at the finish: ${split[1].start}`);
+    assert.ok(Math.abs(split[1].end - 5000) < 60);
+    assert.deepEqual(split.map(c => c.index), [0, 1]);
+    // Finish just short of the top: the bit left isn't a climb
+    const nearTop = detectClimbsSplit(d, e, 4950);
+    assert.equal(nearTop.length, 1);
+    assert.ok(Math.abs(nearTop[0].end - 4950) < 20);
 });

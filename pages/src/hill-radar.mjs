@@ -1,6 +1,7 @@
 import * as common from '/pages/src/common.mjs';
 import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChunks,
         autoChunkLength, elevationAt, gradeAt, ascentAt, portalClimbStart, portalClimbEnd, climbsFromStart,
+        detectClimbsSplit,
         DETECTION_SCORES} from './climbs.mjs';
 import {ClimbEffort, formatDuration, estimateTimeLeft} from './effort.mjs';
 import {gradeColor, gradeTextColor} from './colors.mjs';
@@ -129,7 +130,8 @@ function courseKey(state) {
 
 function routeCourseKey(state) {
     if (state.eventSubgroupId) {
-        return `event:${state.eventSubgroupId}`;
+        // Planned a lap or two past the rider, like free ride, to keep riding after the finish
+        return `event:${state.eventSubgroupId}:${Math.max(2, (state.laps || 0) + 2)}`;
     }
     let routeId = state.routeId;
     if (routeId) {
@@ -166,12 +168,13 @@ async function getSegmentNames(ids) {
 async function buildRouteCourse(state, key) {
     let routeId = state.routeId || (lastRoute && lastRoute.routeId);
     let laps = null;
+    let eventLaps = null;
     let distance = null;
     if (state.eventSubgroupId) {
         const sg = await common.getEventSubgroup(state.eventSubgroupId);
         if (sg && sg.routeId) {
             routeId = sg.routeId;
-            laps = sg.laps || 1;
+            eventLaps = sg.laps || 1;
             distance = sg.distanceInMeters || null;
         }
     }
@@ -187,11 +190,15 @@ async function buildRouteCourse(state, key) {
         routeLapsSupport.set(routeId, !!route.supportedLaps);
         key = courseKey(state);
     }
-    if (laps == null) {
-        laps = neededLaps(route, state);
-    }
+    // Free ride: a lap or two past the rider. Events: to the finish, then on past it the same way,
+    // for riding on after the event ends.
+    const minLaps = neededLaps(route, state);
     if (distance) {
         laps = route.supportedLaps ? 1000 : 1;
+    } else if (eventLaps) {
+        laps = route.supportedLaps ? Math.max(eventLaps, minLaps) : eventLaps;
+    } else {
+        laps = minLaps;
     }
     const distances = Array.from(route.distances);
     const elevations = Array.from(route.elevations);
@@ -209,7 +216,7 @@ async function buildRouteCourse(state, key) {
     const weld = route.lapWeldData;
     const weldLength = weld && weld.distances ? weld.distances[weld.distances.length - 1] : 0;
     const lapList = [{offset: 0, distance: distances[distances.length - 1], lapStart: preludeDist}];
-    for (let lap = 1; lap < laps && !(distance && distances[distances.length - 1] >= distance); lap++) {
+    for (let lap = 1; lap < laps && !(distance && distances[distances.length - 1] >= distance && lap >= minLaps); lap++) {
         const offset = distances[distances.length - 1];
         if (weld && weld.distances) {
             for (let i = 0; i < weld.distances.length; i++) {
@@ -228,17 +235,13 @@ async function buildRouteCourse(state, key) {
     for (const lap of lapList) {
         lap.fullDistance = lap.distance;  // untruncated, for positioning by distance left in the lap
     }
+    // Where the event finishes. The course goes on past it, for riding on after the event ends.
+    let finish = null;
     if (distance) {
-        while (distances.length > 2 && distances[distances.length - 1] > distance) {
-            distances.pop();
-            elevations.pop();
-        }
-        const end = distances[distances.length - 1];
-        while (lapList.length > 1 && lapList[lapList.length - 1].offset >= end) {
-            lapList.pop();
-        }
-        const last = lapList[lapList.length - 1];
-        last.distance = end - last.offset;
+        finish = Math.min(distance, distances[distances.length - 1]);
+    } else if (eventLaps) {
+        const last = lapList[Math.min(eventLaps, lapList.length) - 1];
+        finish = last.offset + last.distance;
     }
     // Named segments (KOMs etc.) for naming climbs
     const routeSegments = (route.segments || []).filter(x => !x.weldOnly);
@@ -268,7 +271,7 @@ async function buildRouteCourse(state, key) {
         }
     }
     return {key, mode: 'route', routeId, name: route.name, courseId: route.courseId ?? state.courseId,
-            distances, elevations, laps: lapList, segments,
+            distances, elevations, laps: lapList, segments, finish, eventLaps,
             sections, checkpoints, lapLength: lapDistances[lapDistances.length - 1]};
 }
 
@@ -588,11 +591,16 @@ function detect() {
     }
     profile = buildProfile(course.distances, course.elevations);
     const previewStart = previewIndex != null && climbs[previewIndex] ? climbs[previewIndex].start : null;
-    climbs = climbsFromStart(detectClimbs(profile, {
+    const options = {
         minScore: DETECTION_SCORES[settings().detection] || DETECTION_SCORES.small,
         minGrade: settings().gentleClimbs ? GENTLE_MIN_GRADE : undefined,
         segments: course.segments,
-    }), rideStart && rideStart.base === baseKey(course.key) ? rideStart.pos : 0);
+    };
+    // Events: a climb that crosses the finish ends there; what's past it only counts if you ride on
+    const found = course.finish != null ?
+        detectClimbsSplit(course.distances, course.elevations, course.finish, options) :
+        detectClimbs(profile, options);
+    climbs = climbsFromStart(found, rideStart && rideStart.base === baseKey(course.key) ? rideStart.pos : 0);
     nameClimbs();
     if (previewStart != null) {
         const same = climbs.find(c => Math.abs(c.start - previewStart) < 1);
@@ -602,7 +610,7 @@ function detect() {
 
 // Course key without the planned lap count (same route, same ride)
 function baseKey(key) {
-    return key ? key.replace(/^(route:[^:]+):\d+$/, '$1') : key;
+    return key ? key.replace(/^((?:route|event):[^:]+):\d+$/, '$1') : key;
 }
 
 let failedBuild = null;   // {key, time}: don't retry a failed load every update
@@ -715,13 +723,31 @@ function isOpenEnded() {
     return !!(course && course.key.startsWith('route:') && course.laps && course.laps.length > 1);
 }
 
-// Climbs are numbered from the start of the ride, counting every lap, so the
-// climbs already done are included. The course always starts at the beginning
-// of the ride, so this also holds after reopening the window mid-ride.
+// Past the finish of an event (riding on after it ended)
+function afterFinish(pos) {
+    return course?.finish != null && pos != null && pos > course.finish + 1;
+}
+
+// Riding with no set end: free ride on a lapped route, or on after an event's finish
+function noSetEnd(pos) {
+    return isOpenEnded() || afterFinish(pos);
+}
+
+let renderPos = null;  // the rider's position as last rendered, for the climb and lap counts
+
+// "3/5 · lap 2/3": climbs are numbered from the start of the ride, counting every lap, so the
+// climbs already done are included (this also holds after reopening the window mid-ride). The
+// total is the event's climbs, or, with no set end, the climbs up to the end of this lap. Laps
+// show a total when there's a finish ahead.
 function climbNumberText(c) {
     const n = c.index + 1;
-    const lap = course && course.laps && course.laps.length > 1 ? ` · lap ${lapOf(c.start) + 1}` : '';
-    return (isOpenEnded() ? `#${n}` : `${n}/${climbs.length}`) + lap;
+    const total = shownClimbs(renderPos).length;
+    let lap = '';
+    if (course && course.laps && course.laps.length > 1) {
+        const lapTotal = course.finish != null && !afterFinish(renderPos) ? lapOf(course.finish - 1) + 1 : null;
+        lap = ` · lap ${lapOf(c.start) + 1}${lapTotal ? `/${lapTotal}` : ''}`;
+    }
+    return `${n}/${Math.max(n, total)}` + lap;
 }
 
 function climbTitle(c) {
@@ -1032,8 +1058,8 @@ function segmentFlags(climb) {
     if (!settings().showSegmentFlags || !seg || seg.always) {
         return [];
     }
-    const tolerance = Math.max(20, climb.length * 0.01);
     const flags = [];
+    const tolerance = Math.max(20, climb.length * 0.01);
     if (seg.start - climb.start > tolerance && seg.start < climb.end) {
         flags.push({kind: 'start', distance: seg.start});
     }
@@ -1112,14 +1138,21 @@ function preview(index) {
     render();
 }
 
-// Free ride on a lapped route: only the climbs up to the lap being ridden; the next lap's show
-// once it starts. Events show every lap they have.
+// The climbs to show. Events: the event's climbs (every lap, to the finish). Free ride on a lapped
+// route, or riding on after an event: the climbs up to the end of the lap being ridden; the next
+// lap's show once it starts.
 function shownClimbs(pos) {
-    if (!isOpenEnded() || pos == null) {
+    if (!course) {
         return climbs;
     }
-    const lap = lapOf(pos);
-    return climbs.filter(c => lapOf(c.start) <= lap);
+    if (course.finish != null && !afterFinish(pos)) {
+        return climbs.filter(c => c.start < course.finish);
+    }
+    if (pos != null && noSetEnd(pos)) {
+        const lap = lapOf(pos);
+        return climbs.filter(c => lapOf(c.start) <= lap);
+    }
+    return climbs;
 }
 
 function lapOf(distance) {
@@ -1138,18 +1171,19 @@ function lapOf(distance) {
 // Climbs to list for the route: free rides are planned a few laps ahead, so list
 // the lap being ridden; events list everything.
 function routeListClimbs(pos, positionUnknown) {
-    if (isOpenEnded()) {
-        const lap = pos != null && !positionUnknown ? lapOf(pos) : 0;
+    const known = pos != null && !positionUnknown;
+    if (isOpenEnded() || (known && afterFinish(pos))) {
+        const lap = known ? lapOf(pos) : 0;
         return {lap, list: climbs.filter(c => lapOf(c.start) === lap)};
     }
-    return {lap: null, list: climbs};
+    return {lap: null, list: shownClimbs(known ? pos : 0)};
 }
 
 function renderRouteList(pos, positionUnknown) {
     const el = document.querySelector('.route-list');
     const imperial = isImperial();
     const {lap, list} = routeListClimbs(pos, positionUnknown);
-    const multiLap = course && !isOpenEnded() && course.laps && course.laps.length > 1;
+    const multiLap = course && lap == null && course.laps && course.laps.length > 1;
     el.querySelector('.route-list-title').textContent =
         `${course?.name || 'Road ahead'}${lap != null ? ` · lap ${lap + 1}` : ''} · ` +
         `${list.length} climb${list.length === 1 ? '' : 's'}`;
@@ -1212,6 +1246,7 @@ function render() {
     let pos = null;
     let progress = null;
     let positionUnknown = false;
+    renderPos = null;
     if (!state) {
         message = 'Waiting for rider data...';
     } else if (building && !course) {
@@ -1230,6 +1265,7 @@ function render() {
         if (pos == null) {
             message = 'Waiting for position on road...';
         } else {
+            renderPos = positionUnknown ? null : pos;
             climb = currentOrNextClimb(shownClimbs(pos), pos);
             if (climb) {
                 progress = positionUnknown ?
@@ -1247,7 +1283,7 @@ function render() {
                     'Climb Portal: the climb shows when you reach it' :
                     course.routeMissing ? 'Route not in Sauce yet: no climbs ahead on this road' :
                     !climbs.length ? 'No climbs on this route' :
-                    climbs.some(c => c.start > pos) ? 'No more climbs this lap' : 'No more climbs';
+                    noSetEnd(pos) && climbs.some(c => c.start > pos) ? 'No more climbs this lap' : 'No more climbs';
             }
         }
     }
