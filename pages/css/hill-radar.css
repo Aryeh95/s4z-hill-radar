@@ -149,6 +149,24 @@ html:not(.settings-page) body {
     overflow: visible;
 }
 
+.profile .zoom-strip {
+    fill: var(--hr-fg);
+    fill-opacity: 0.3;
+}
+
+.profile .zoom-window {
+    fill: var(--hr-fg);
+    fill-opacity: 0.18;
+    stroke: var(--hr-fg);
+    stroke-opacity: 0.7;
+    stroke-width: 1;
+}
+
+.profile .zoom-pos {
+    stroke: #fff;
+    stroke-width: 2;
+}
+
 .profile .outline {
     fill: none;
     stroke: var(--hr-fg);

@@ -26,6 +26,7 @@ common.settingsStore.setDefault({
     colorMode: 'smooth',
     gradientOpacity: 0.9,
     chunkLength: 'auto',
+    zoomProfile: 'off',
     showGradeLabels: true,
     dimCompleted: true,
     showSegmentFlags: true,
@@ -621,6 +622,17 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     const s = settings();
     const fontPx = parseFloat(getComputedStyle(svg.parentElement).fontSize) || 12;
     const labelSize = fontPx * 0.8;
+    // Zoom on long climbs: while climbing, the profile shows the stretch ahead and the whole
+    // climb is a strip underneath. It moves on in small steps, so the terrain is redrawn rarely.
+    const full = climb;
+    const zoomLen = Number(s.zoomProfile) || 0;
+    const zoom = zoomLen > 0 && progress.state === 'climbing' && pos != null && full.length > zoomLen * 1.5;
+    if (zoom) {
+        const q = zoomLen / 40;
+        const v0 = Math.min(full.end - zoomLen, Math.max(full.start, Math.round((pos - zoomLen * 0.2) / q) * q));
+        climb = {...full, start: v0, end: v0 + zoomLen, length: zoomLen};
+    }
+    const stripH = zoom ? Math.max(10, Math.round(height * 0.16)) : 0;
     const step = Math.max(profile.step, climb.length / Math.max(50, width));
     const points = [];
     for (let d = climb.start; d < climb.end; d += step) {
@@ -637,7 +649,7 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     const flags = segmentFlags(climb);
     const flagH = labelSize * 1.6;
     const top = labelSize * 1.3 + (flags.length ? flagH * 0.9 : 0);
-    const bottom = height - 1;
+    const bottom = height - 1 - stripH;
     const x = d => (d - climb.start) / climb.length * width;
     const y = e => bottom - (e - (minE - pad)) / ((maxE + pad) - (minE - pad)) * (bottom - top);
     const chunkLen = s.chunkLength === 'auto' ? autoChunkLength(climb.length) : Number(s.chunkLength) || 250;
@@ -645,7 +657,7 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     const imperial = isImperial();
     // The terrain only changes with the climb, the window size or the look, so it's kept between
     // updates; only the live layer (you, the dimmed part, other riders) is redrawn each time.
-    const terrainKey = JSON.stringify([course?.key, climb.start, climb.end, width, height, fontPx,
+    const terrainKey = JSON.stringify([course?.key, full.start, climb.start, climb.end, width, height, fontPx,
         imperial, s.colorScheme, s.colorMode, opacity, chunkLen, !!s.showGradeLabels, flags.map(f => f.distance)]);
     let terrain = svg.querySelector(':scope > g.terrain');
     if (!terrain || terrain.dataset.key !== terrainKey) {
@@ -653,6 +665,9 @@ function renderProfile(climb, pos, progress, positionUnknown) {
         terrain = svgEl('g', {class: 'terrain'}, svg);
         terrain.dataset.key = terrainKey;
         drawTerrain(terrain, {climb, points, flags, flagH, labelSize, width, bottom, x, y, chunkLen, opacity, imperial});
+        if (zoom) {
+            drawZoomStrip(terrain, full, climb, width, height, stripH);
+        }
     }
     svg.querySelector(':scope > g.live')?.remove();
     const live = svgEl('g', {class: 'live'}, svg);
@@ -679,6 +694,10 @@ function renderProfile(climb, pos, progress, positionUnknown) {
         const h = Math.max(7, labelSize * 1.1);
         const ax = Math.min(width - w, Math.max(w, px));  // whole arrow inside the window at either end
         svgEl('polygon', {class: 'rider-marker', points: `${ax},${tip} ${ax - w},${tip - h} ${ax + w},${tip - h}`}, live);
+        if (zoom) {
+            const sx = (pos - full.start) / full.length * width;
+            svgEl('line', {class: 'zoom-pos', x1: sx, x2: sx, y1: height - stripH + 1, y2: height}, live);
+        }
     } else if (progress.state !== 'done') {
         const t = svgEl('text', {class: 'base-label', x: 2, y: labelSize, 'font-size': labelSize * 0.9}, live);
         t.textContent = positionUnknown ?
@@ -689,6 +708,27 @@ function renderProfile(climb, pos, progress, positionUnknown) {
     profileView = {climb, width, bottom, labelSize, y, gradeWindow: Math.max(40, climb.length / stops * 2),
                    riderPos: progress.state === 'climbing' && pos != null ? pos : null};
     drawHover();
+}
+
+// The whole climb as a strip under a zoomed profile, with the part shown marked.
+function drawZoomStrip(g, full, view, width, height, stripH) {
+    const top = height - stripH + 2;
+    const bottom = height - 1;
+    const n = Math.max(20, Math.round(width / 3));
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+        const d = full.start + full.length * i / n;
+        pts.push([d, elevationAt(profile, d)]);
+    }
+    const lo = Math.min(...pts.map(p => p[1]));
+    const hi = Math.max(...pts.map(p => p[1]));
+    const sx = d => (d - full.start) / full.length * width;
+    const sy = e => bottom - (e - lo) / ((hi - lo) || 1) * (bottom - top);
+    const poly = pts.map(([d, e]) => `${sx(d).toFixed(1)},${sy(e).toFixed(1)}`);
+    poly.push(`${width},${bottom}`, `0,${bottom}`);
+    svgEl('polygon', {class: 'zoom-strip', points: poly.join(' ')}, g);
+    svgEl('rect', {class: 'zoom-window', x: sx(view.start), y: top - 1,
+                   width: sx(view.end) - sx(view.start), height: bottom - top + 1}, g);
 }
 
 // ---------- Hover: grade at the pointer ----------
