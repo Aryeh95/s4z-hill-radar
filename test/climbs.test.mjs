@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildProfile, detectClimbs, riderProgress, climbChunks, currentOrNextClimb,
         autoChunkLength, portalClimbStart, portalClimbEnd, climbsFromStart, detectClimbsSplit, DETECTION_SCORES} from '../pages/src/climbs.mjs';
-import {gradeColor, gradeTextColor, SCHEMES} from '../pages/src/colors.mjs';
+import {gradeColor, gradeTextColor, SCHEMES, contrastRatio, parseRgb} from '../pages/src/colors.mjs';
 import {routeKey, fallbackClimbName, climbNameByShape} from '../pages/src/names.mjs';
 import {climbShapes} from '../pages/src/climb-names.mjs';
 import {formatDistance, formatElevation, formatGrade, resolveImperial, toText} from '../pages/src/units.mjs';
@@ -604,4 +604,33 @@ test('event finishing mid-climb: the climb ends at the finish, the rest counts o
     const nearTop = detectClimbsSplit(d, e, 4950);
     assert.equal(nearTop.length, 1);
     assert.ok(Math.abs(nearTop[0].end - 4950) < 20);
+});
+
+test('colored grade number reads on any theme background, keeping its hue', () => {
+    // Panel backgrounds of Sauce themes: light, aqua, default (red), watermelon (green), grey, dark
+    const backgrounds = [[1, 1, 1], [0.6, 0.85, 0.85], [0.72, 0, 0], [0.01, 0.72, 0], [0.36, 0.36, 0.36], [0.12, 0.12, 0.12]];
+    const rgb = css => {
+        const [h, s, l] = css.match(/hsl\((\d+) (\d+)% (\d+)%/).slice(1).map(Number);
+        const k = n => (n + h / 30) % 12, a = s / 100 * Math.min(l / 100, 1 - l / 100);
+        return [0, 8, 4].map(n => l / 100 - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)));
+    };
+    for (const {id} of SCHEMES) {
+        for (const bg of backgrounds) {
+            for (let g = -0.12; g <= 0.2; g += 0.01) {
+                const css = gradeTextColor(g, id, bg);
+                assert.ok(contrastRatio(rgb(css), bg) >= 4.45, `${id} ${Math.round(g * 100)}% on ${bg}: ${css}`);
+            }
+        }
+    }
+    // Same hue as without a background (only lightness changes)
+    const hue = css => css.match(/hsl\((\d+)/)[1];
+    assert.equal(hue(gradeTextColor(0.04, 'classic', [1, 1, 1])), hue(gradeTextColor(0.04, 'classic')));
+    // Dark panel: the scheme's own color where it already reads
+    const own = gradeTextColor(0.08, 'classic', [0.05, 0.05, 0.05]);
+    assert.equal(hue(own), hue(gradeTextColor(0.08, 'classic')));
+    // See-through background: unknown
+    assert.equal(parseRgb('rgba(255, 255, 255, 0.1)'), null);
+    assert.deepEqual(parseRgb('rgb(255, 0, 0)'), [1, 0, 0]);
+    // A see-through panel: its color mixed with the (mid grey) game behind it
+    assert.deepEqual(parseRgb('rgba(255, 0, 0, 0.5)').map(x => Math.round(x * 100)), [73, 23, 23]);
 });

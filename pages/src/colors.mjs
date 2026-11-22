@@ -171,11 +171,70 @@ export function gradeColor(grade, scheme='classic', alpha=1) {
     return hsl(c.h, c.s, c.l, alpha);
 }
 
+// HSL (0-360, 0-1, 0-1) to RGB (0-1)
+function hslToRgb(h, s, l) {
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    return [0, 8, 4].map(n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)));
+}
+
+function luminance([r, g, b]) {
+    const f = c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+/** WCAG contrast ratio between two RGB (0-1) colors (1 to 21). */
+export function contrastRatio(a, b) {
+    const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+}
+
 /**
- * The grade's color for text (e.g. the grade number) on a dark background: the scheme's
- * color, lightened where it's too dark to read.
+ * The color seen through a CSS rgb()/rgba() background (e.g. from getComputedStyle) as RGB
+ * (0-1), or null. A see-through panel shows the game behind it, taken as mid grey; a mostly
+ * see-through one (alpha under minAlpha) gives null, as what's behind it can't be known.
  */
-export function gradeTextColor(grade, scheme='classic') {
+export function parseRgb(css, minAlpha=0.35, behind=0.45) {
+    const m = String(css || '').match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/);
+    const a = m && m[4] != null ? Number(m[4]) : 1;
+    if (!m || a < minAlpha) {
+        return null;
+    }
+    return [m[1], m[2], m[3]].map(x => x / 255 * a + behind * (1 - a));
+}
+
+const minTextContrast = 4.5;  // WCAG AA for normal text; the panel is often see-through
+
+/**
+ * The grade's color for text (e.g. the grade number). On a known background (RGB 0-1) the
+ * scheme's color keeps its hue and only its lightness moves, as little as needed to read at
+ * 4.5:1 or better: darker on light themes, lighter on dark ones. Without one, a dark background
+ * is assumed.
+ */
+export function gradeTextColor(grade, scheme='classic', background=null) {
     const c = gradeHsl(grade, scheme, true);
-    return hsl(c.h, Math.min(1, c.s), scheme === 'barberfish' ? c.l : Math.max(0.55, c.l));
+    const s = Math.min(1, c.s);
+    if (!background) {
+        return hsl(c.h, s, scheme === 'barberfish' ? c.l : Math.max(0.55, c.l));
+    }
+    // Checked as written (whole-number hue and percentages), so rounding can't tip it under
+    const r = x => Math.round(x * 100) / 100;
+    const ok = l => contrastRatio(hslToRgb(Math.round(c.h), r(s), r(l)), background) >= minTextContrast;
+    if (ok(c.l)) {
+        return hsl(c.h, s, c.l);
+    }
+    // Lighter on backgrounds white reads better on, else darker; the other way if that can't work
+    const lighter = contrastRatio([1, 1, 1], background) >= contrastRatio([0, 0, 0], background);
+    for (const dir of lighter ? [1, -1] : [-1, 1]) {
+        for (let d = 0.01; d <= 1; d += 0.01) {
+            const l = c.l + dir * d;
+            if (l < 0 || l > 1) {
+                break;
+            }
+            if (ok(l)) {
+                return hsl(c.h, s, l);
+            }
+        }
+    }
+    return lighter ? hsl(0, 0, 1) : hsl(0, 0, 0);
 }

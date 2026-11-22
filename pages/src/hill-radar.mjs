@@ -4,7 +4,7 @@ import {buildProfile, detectClimbs, riderProgress, currentOrNextClimb, climbChun
         detectClimbsSplit,
         DETECTION_SCORES} from './climbs.mjs';
 import {ClimbEffort, formatDuration, estimateTimeLeft} from './effort.mjs';
-import {gradeColor, gradeTextColor} from './colors.mjs';
+import {gradeColor, gradeTextColor, parseRgb} from './colors.mjs';
 import {fallbackClimbName, climbNameByShape} from './names.mjs';
 import {portalClimbs} from './climb-names.mjs';
 import {isVideoRoad, videoRoad, videoRoadOffset, videoCourseId} from './video.mjs';
@@ -1360,8 +1360,9 @@ function render() {
         setStat(1, 'Climb left', formatElevation(progress.remainingAscent, imperial));
         // Sauce may not have a grade where it has no road data (e.g. video routes): use the profile's
         const grade = Number.isFinite(state.grade) ? state.grade : gradeAt(profile, pos);
-        setStat(2, 'Grade', formatGrade(grade),
-                s.colorGradeNumber ? gradeTextColor(grade, s.colorScheme) : '');
+        // Readable on the panel's own background (the theme's), whatever the theme
+        setStat(2, 'Grade', formatGrade(grade), s.colorGradeNumber ?
+            gradeTextColor(grade, s.colorScheme, parseRgb(getComputedStyle(climbEl).backgroundColor)) : '');
         setStat(3, 'Avg left', formatGrade(progress.remainingGrade));
     } else if (showAt) {
         setStat(0, 'Starts at', formatDistance(climb.start, imperial));
