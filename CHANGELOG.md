@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The upcoming climbs list can show up to 10 climbs (was 5). Every climb on the route is also in the Route climbs list (the list button), where any climb can be previewed.
 - **Color the grade number** now reads on every Sauce theme: the color keeps its hue and only gets darker (light themes) or lighter (dark ones) as needed to stand out from the panel. Before, it assumed a dark panel, so greens and yellows nearly vanished on the Light and Aqua themes, and some colors on the default and Watermelon themes.
 - The climb count now shows the total, and the lap the total laps where there's a finish: "Climb 3 · 3/5 · lap 2/3". In free ride on a lapped route the total is the climbs to the end of the lap you're on.
 - Riding on after an event ends: the rest of that lap's climbs show once you're past the finish, and the next lap's once it starts, like free ride. A climb that crosses the finish ends at the finish line during the event; the part after it shows as its own climb (if it's a climb by itself) only if you ride on. Before, nothing showed after the finish, and a new lap could show the event's last lap again.
