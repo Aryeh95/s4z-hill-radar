@@ -1221,14 +1221,24 @@ function trackEffort(state, pos, positionUnknown) {
     }
 }
 
-// This ride's attempts at each climb, to compare laps. A climb is known by its place in the lap
-// and its length, so it's the same climb on every lap.
-const history = new ClimbHistory((a, b) => a.base === b.base && Math.abs(a.offset - b.offset) < 40 &&
-                                           Math.abs(a.length - b.length) < 60);
+// This ride's attempts at each climb, to compare them. A climb is known by what it is, not where
+// it is on the route, so the same climb matches on every lap and when a route repeats it within a
+// lap (e.g. the Montmartre KOM three times on Sacré Trois!): by its official segment if it has
+// one, else by its start and end elevation; and by length either way.
+const history = new ClimbHistory(sameClimb);
 
 function climbKey(c) {
-    const lap = course?.laps ? course.laps[lapOf(c.start)] : null;
-    return {base: baseKey(course?.key), offset: c.start - (lap ? lap.lapStart : 0), length: c.length};
+    return {courseId: course?.courseId ?? null, segment: c.segment?.name || null,
+            startElevation: c.startElevation, endElevation: c.endElevation, length: c.length};
+}
+
+function sameClimb(a, b) {
+    if (a.courseId !== b.courseId || a.segment !== b.segment ||
+        Math.abs(a.length - b.length) > Math.max(60, a.length * 0.05)) {
+        return false;
+    }
+    return !!a.segment || (Math.abs(a.startElevation - b.startElevation) < 3 &&
+                           Math.abs(a.endElevation - b.endElevation) < 3);
 }
 
 function finishEffort(e) {
@@ -1279,9 +1289,9 @@ function effortStat(key, x, imperial) {
         case 'distance': return ['Distance', missing(x.distance) ? '-' : formatDistance(x.distance, imperial)];
         case 'ascent': return ['Climbed', missing(x.ascent) ? '-' : formatElevation(x.ascent, imperial)];
         case 'eta': return ['Est. to top', missing(x.eta) ? '-' : formatDuration(x.eta)];
-        // Against this ride's earlier laps: ahead (faster) green, behind red
-        case 'vsLast': return ['vs last lap', formatDelta(x.vsLast), deltaColor(x.vsLast)];
-        case 'vsBest': return ['vs best lap', formatDelta(x.vsBest), deltaColor(x.vsBest)];
+        // Against this ride's earlier times up the same climb: ahead (faster) green, behind red
+        case 'vsLast': return ['vs last time', formatDelta(x.vsLast), deltaColor(x.vsLast)];
+        case 'vsBest': return ['vs best time', formatDelta(x.vsBest), deltaColor(x.vsBest)];
         case 'vsLastPower': return ['Power vs last', missing(x.vsLastPower) ? '-' :
             {value: `${x.vsLastPower >= 0 ? '+' : '\u2212'}${Math.abs(Math.round(x.vsLastPower))}`, unit: 'w'},
             deltaColor(missing(x.vsLastPower) ? null : -x.vsLastPower)];
@@ -1301,8 +1311,8 @@ const STAT_OPTIONS = [
     ['maxHR', 'Max HR'], ['vam', 'VAM'], ['avgSpeed', 'Avg speed'], ['avgCadence', 'Cadence'],
     ['np', 'NP (Normalized Power)'], ['maxPower', 'Max power'], ['kj', 'Energy (kJ)'],
     ['distance', 'Distance'], ['ascent', 'Climbed'], ['eta', 'Est. time to top (live only)'],
-    ['vsLast', 'Time vs last lap'], ['vsBest', 'Time vs best lap'],
-    ['vsLastPower', 'Avg power vs last lap (summary only)'],
+    ['vsLast', 'Time vs last time up this climb'], ['vsBest', 'Time vs best time up this climb'],
+    ['vsLastPower', 'Avg power vs last time (summary only)'],
 ];
 const LIVE_ONLY = new Set(['eta']);
 const SUMMARY_ONLY = new Set(['vsLastPower']);

@@ -79,7 +79,7 @@ Climbs without an official segment are found from the elevation profile. When on
 
 You choose the stats: eight slots for the summary and eight for the live row (in rows of up to four), each any of time, average power, NP (Normalized Power, after 30 s on the climb), max power, average W/kg, VAM, average and max heart rate, average speed, cadence, energy (kJ), distance and climbed, or off. The live row also offers **estimated time to the top**: your pace on the climb so far, adjusted for the grade left (slower if it gets steeper, faster if it eases). With slots off, the live stats shown share the row.
 
-**Lap comparisons:** on routes with laps, the stats **time vs last lap** and **time vs best lap** (live: at the same point on the climb; summary: the whole climb) and **avg power vs last lap** (summary) compare you with your earlier laps of the same climb in this ride, green when you're ahead and red when behind. They need a full attempt from the bottom to compare, and are kept until you close Hill Radar or watch someone else.
+**Climb comparisons:** the stats **time vs last time** and **time vs best time** (live: at the same point on the climb; summary: the whole climb) and **avg power vs last time** (summary) compare you with your earlier times up the same climb in this ride, green when you're ahead and red when behind. The same climb is recognised wherever it comes: on every lap, or when a route repeats it (e.g. the Montmartre KOM three times on Sacré Trois!), by its official segment or else its start and end elevation. They need a full attempt from the bottom to compare, and are kept until you close Hill Radar or watch someone else.
 
 ## Settings
 
